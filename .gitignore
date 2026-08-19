@@ -1,0 +1,6 @@
+/node_modules/
+
+/apps/api/node_modules/
+/apps/api/.env.production
+
+/packages/share/build/
