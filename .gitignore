@@ -2,5 +2,10 @@
 
 /apps/api/node_modules/
 /apps/api/.env.production
+/apps/api/.env.development
+
+/apps/smtp/node_modules/
+/apps/smtp/.env.production
+/apps/smtp/.env.development
 
 /packages/share/build/

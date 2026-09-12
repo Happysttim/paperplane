@@ -1,0 +1,26 @@
+{
+  "name": "smtp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mailauth": "^5.0.3",
+    "postal-mime": "^3.0.0",
+    "smtp-server": "^3.19.10"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.1",
+    "@types/smtp-server": "^3.5.13",
+    "eslint": "^10.8.1",
+    "prettier": "^3.8.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}
