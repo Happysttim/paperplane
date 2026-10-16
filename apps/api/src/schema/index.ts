@@ -3,16 +3,33 @@ import {
   serial,
   text,
   boolean,
-  integer,
   timestamp,
   pgEnum,
   uniqueIndex,
   json,
+  varchar,
+  integer,
+  index,
 } from 'drizzle-orm/pg-core';
 import { defineRelations } from 'drizzle-orm';
 import type { ForwardRule } from './rules';
 
 export const providerEnum = pgEnum('provider', ['google', 'naver', 'local']);
+
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: serial('id').primaryKey(),
+    refreshHash: text('refresh_hash').notNull(),
+    revoke: boolean('revoke').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [index('refresh_hash_index').on(table.refreshHash)],
+);
+
+export type SessionModel = typeof sessions.$inferSelect;
+export type SessionOptional = typeof sessions.$inferInsert;
 
 export const domains = pgTable('domains', {
   id: serial('id').primaryKey(),
@@ -26,10 +43,11 @@ export const users = pgTable(
   'users',
   {
     id: serial('id').primaryKey(),
-    userEmail: text('user_email').unique(),
+    userEmail: varchar('user_email', { length: 50 }).unique(),
+    name: varchar('name', { length: 10 }).notNull(),
     passwordHash: text('password_hash'),
     provider: providerEnum('provider').default('local').notNull(),
-    providerId: text('provider_id'),
+    providerId: varchar('provider_id', { length: 100 }),
     hasPremium: boolean('has_premium').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -59,7 +77,7 @@ export const emails = pgTable(
     userId: integer('user_id')
       .references(() => users.id)
       .notNull(),
-    src: text('src_email').notNull().unique(),
+    src: varchar('src_email', { length: 50 }).notNull().unique(),
     domainId: integer('domain_id')
       .references(() => domains.id)
       .notNull(),
@@ -82,14 +100,14 @@ export const forwards = pgTable('forwards', {
   rule: json('rule').$type<ForwardRule>().default([]),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
-  dest: text('forward_email').notNull(),
+  dest: varchar('forward_email', { length: 50 }).notNull(),
 });
 
 export type ForwardModel = typeof forwards.$inferSelect;
 export type ForwardOptional = typeof forwards.$inferInsert;
 
 export const relations = defineRelations(
-  { users, premiums, emails, forwards, domains },
+  { users, premiums, emails, forwards, domains, sessions },
   (r) => ({
     domains: {
       emails: r.many.emails(),
@@ -109,6 +127,11 @@ export const relations = defineRelations(
       domains: r.one.domains({
         from: r.emails.domainId,
         to: r.domains.id,
+        optional: false,
+      }),
+      users: r.one.users({
+        from: r.emails.userId,
+        to: r.users.id,
         optional: false,
       }),
     },

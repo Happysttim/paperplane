@@ -4,7 +4,9 @@ import { sql } from 'drizzle-orm';
 const id = database.query.premiums
   .findFirst({
     where: {
-      userId: sql.placeholder('id'),
+      userId: {
+        eq: sql.placeholder('id'),
+      },
     },
   })
   .prepare('premiums_id');

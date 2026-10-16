@@ -18,7 +18,7 @@ const email = database.query.users
   .findFirst({
     where: {
       userEmail: {
-        like: sql.placeholder('userEmail'),
+        eq: sql.placeholder('userEmail'),
       },
     },
   })
@@ -34,11 +34,11 @@ const provider = database.query.users
   })
   .prepare('users_provider');
 
-const providerEmail = database.query.users
+const providerId = database.query.users
   .findFirst({
     where: {
-      userEmail: {
-        like: sql.placeholder('userEmail'),
+      providerId: {
+        eq: sql.placeholder('providerId'),
       },
       provider: {
         eq: sql.placeholder('provider'),
@@ -50,7 +50,9 @@ const providerEmail = database.query.users
 const hasEmails = database.query.users
   .findFirst({
     where: {
-      id: sql.placeholder('id'),
+      id: {
+        eq: sql.placeholder('id'),
+      },
     },
     with: {
       emails: true,
@@ -65,7 +67,9 @@ const hasEmails = database.query.users
 const hasEmailForwards = database.query.users
   .findFirst({
     where: {
-      id: sql.placeholder('id'),
+      id: {
+        eq: sql.placeholder('id'),
+      },
     },
     with: {
       emails: {
@@ -97,7 +101,7 @@ export default {
   all,
   email,
   provider,
-  providerEmail,
+  providerId,
   hasEmails,
   hasEmailForwards,
 };

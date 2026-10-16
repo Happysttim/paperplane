@@ -1,11 +1,10 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { relations } from '@/schema';
-import 'dotenv/config';
+import config from '@/config';
 
-const DB_URL = process.env.DB_URL || 'localhost';
 const pool = new Pool({
-  connectionString: DB_URL,
+  connectionString: config.dbUrl,
 });
 
 const database = drizzle({ client: pool, relations });

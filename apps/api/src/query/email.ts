@@ -1,6 +1,6 @@
 import database from '@/database';
-import { forwards } from '@/schema';
-import { eq, sql } from 'drizzle-orm';
+import { emails, forwards } from '@/schema';
+import { count, eq, sql } from 'drizzle-orm';
 
 const id = database.query.emails
   .findFirst({
@@ -13,11 +13,14 @@ const id = database.query.emails
   .prepare('emails_id');
 
 const source = database.query.emails
-  .findFirst({
+  .findMany({
     where: {
       src: {
-        like: sql.placeholder('src'),
+        in: sql.placeholder('srcs'),
       },
+    },
+    with: {
+      forwards: true,
     },
   })
   .prepare('emails_source');
@@ -26,7 +29,7 @@ const forwardsWithSource = database.query.emails
   .findFirst({
     where: {
       src: {
-        like: sql.placeholder('src'),
+        eq: sql.placeholder('src'),
       },
     },
     with: {
@@ -45,6 +48,9 @@ const forwardsWithId = database.query.emails
       id: {
         eq: sql.placeholder('id'),
       },
+      userId: {
+        eq: sql.placeholder('userId'),
+      },
     },
     with: {
       forwards: true,
@@ -56,9 +62,38 @@ const forwardsWithId = database.query.emails
   })
   .prepare('emails_forwards_with_id');
 
+const pagination = database.query.emails
+  .findMany({
+    where: {
+      userId: {
+        eq: sql.placeholder('userId'),
+      },
+    },
+    with: {
+      forwards: true,
+    },
+    offset: sql.placeholder('offset'),
+    limit: sql.placeholder('limit'),
+    extras: {
+      totalForwards: (table) =>
+        database.$count(forwards, eq(forwards.emailId, table.id)),
+    },
+  })
+  .prepare('emails_pagination');
+
+const paginationCount = database
+  .select({
+    count: count(),
+  })
+  .from(emails)
+  .where(eq(emails.userId, sql.placeholder('userId')))
+  .prepare('emails_pagination_count');
+
 export default {
   id,
   source,
   forwardsWithSource,
   forwardsWithId,
+  pagination,
+  paginationCount,
 };

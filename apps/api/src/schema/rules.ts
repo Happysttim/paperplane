@@ -14,6 +14,11 @@ export type AttachmentRule = {
   ext: string | undefined;
 };
 
+export type DateRule = {
+  startDate: Date | string | undefined;
+  endDate: Date | string | undefined;
+};
+
 export type ForwardAttachment = {
   type: ConditionType;
   attachment: AttachmentRule[];
@@ -22,8 +27,9 @@ export type ForwardAttachment = {
 export type PostRule = {
   newsletter: boolean | 'all';
   subject: ForwardRegExp | undefined;
+  name: ForwardRegExp | undefined;
   from: ForwardRegExp | undefined;
-  to: ForwardRegExp | undefined;
+  date: DateRule[] | undefined;
   content: ForwardRegExp | undefined;
   attachment: ForwardAttachment | undefined;
 };
@@ -32,11 +38,15 @@ export type ForwardPostRule = {
   postRule: PostRule;
 };
 export type PostRuleKey = keyof PostRule;
-export type PostRecord = Record<PostRuleKey, string | string[] | boolean>;
+export type PostRecord = Record<
+  PostRuleKey,
+  string | string[] | boolean | Date
+>;
 export type ForwardRule = ForwardPostRule[];
 
-const arrayOf = <T extends boolean | string | string[]>(t: T): string[] =>
-  Array.isArray(t) ? t : [t.toString()];
+const arrayOf = <T extends boolean | string | string[] | Date>(
+  t: T,
+): string[] => (Array.isArray(t) ? t : [t.toString()]);
 const matchRegExpValue = (value: string, regexp: RegExpValue) => {
   switch (regexp.type) {
     case 'middle':
@@ -72,6 +82,28 @@ const matchAttachment = (attachment: string, rule: AttachmentRule) => {
     ? ext.trim().includes(rule.ext.toLowerCase())
     : true;
   return matchFilename && matchExt;
+};
+
+const matchDate = (date: Date | string, rule: DateRule) => {
+  const target = new Date(date);
+  const start = rule.startDate ? new Date(rule.startDate) : undefined;
+  const end = rule.endDate ? new Date(rule.endDate) : undefined;
+
+  if (Number.isNaN(target.getTime())) return false;
+
+  if (start && end) {
+    return start <= target && target <= end;
+  }
+
+  if (start) {
+    return start <= target;
+  }
+
+  if (end) {
+    return target <= end;
+  }
+
+  return true;
 };
 
 const matchForwardAttachment = (
@@ -110,6 +142,12 @@ const matchPost = (record: PostRecord, rule: ForwardPostRule) => {
     } else if (typeof postProp === 'object' && key === 'attachment') {
       const forwardAttachment = postProp as ForwardAttachment;
       return matchForwardAttachments(arrayOf(record[key]), forwardAttachment);
+    } else if (typeof postProp === 'object' && key === 'date') {
+      const dateRules = postProp as DateRule[];
+      if (dateRules.length === 0) return [];
+      return dateRules.some((rule) =>
+        matchDate(record[key] as string | Date, rule),
+      );
     } else {
       const forwardRegExp = postProp as ForwardRegExp;
       return matchForwardRegExp(record[key] as string, forwardRegExp);
@@ -119,10 +157,6 @@ const matchPost = (record: PostRecord, rule: ForwardPostRule) => {
   return rule.type === 'and' ? result.every(Boolean) : result.some(Boolean);
 };
 
-const matchForwardRule = (record: PostRecord, rules: ForwardRule) => {
+export const matchForwardRule = (record: PostRecord, rules: ForwardRule) => {
   return rules.some((rule) => matchPost(record, rule));
-};
-
-export default {
-  matchForwardRule,
 };
