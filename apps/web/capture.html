@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Paperplane 화면 촬영</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    /* Use the actual UI with motion paused for reproducible screenshots. */
+    *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 이동</a>
+  <div id="app"></div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="rule-designer.js" defer></script>
+  <script src="app.js" defer></script>
+  <script>
+    // Expose paint readiness to the screenshot workflow without changing the UI.
+    let captureVersion = 0;
+    function reportCaptureReady() {
+      const version = ++captureVersion;
+      document.documentElement.dataset.captureReady = '';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (version === captureVersion) {
+          document.documentElement.dataset.captureReady = `${innerWidth}x${innerHeight}|${location.hash}`;
+        }
+      }));
+    }
+    addEventListener('load', reportCaptureReady);
+    addEventListener('hashchange', reportCaptureReady);
+    addEventListener('resize', reportCaptureReady);
+  </script>
+</body>
+</html>

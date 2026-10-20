@@ -1,18 +1,21 @@
-import type { ProviderUserInfoInfer } from '@/payload/provider';
+import { providerUserInfoSchema } from '@/payload/provider';
+import { z } from 'zod';
 import * as redis from '.';
 
-export type VerifyStatus = 'verify' | 'verified';
-export type VerifyJSON =
-  | {
-      login: 'oauth';
-      status: 'verified';
-      provider: ProviderUserInfoInfer;
-    }
-  | {
-      login: 'local';
-      status: VerifyStatus;
-      code: string;
-    };
+const verifyJSONSchema = z.discriminatedUnion('login', [
+  z.object({
+    login: z.literal('oauth'),
+    status: z.literal('verified'),
+    provider: providerUserInfoSchema,
+  }),
+  z.object({
+    login: z.literal('local'),
+    status: z.enum(['verify', 'verified']),
+    code: z.string(),
+  }),
+]);
+export type VerifyJSON = z.infer<typeof verifyJSONSchema>;
+export type VerifyStatus = VerifyJSON['status'];
 const VERIFY_KEY_PREFIX = 'verify:';
 const VERIFY_TTL_SECONDS = 30 * 60;
 
@@ -37,7 +40,7 @@ const get = async (verifyToken: string): Promise<VerifyJSON | null> => {
     return null;
   }
 
-  return JSON.parse(value) as VerifyJSON;
+  return verifyJSONSchema.parse(JSON.parse(value));
 };
 
 const getdel = async (verifyToken: string): Promise<VerifyJSON | null> => {
@@ -48,7 +51,7 @@ const getdel = async (verifyToken: string): Promise<VerifyJSON | null> => {
     return null;
   }
 
-  return JSON.parse(value) as VerifyJSON;
+  return verifyJSONSchema.parse(JSON.parse(value));
 };
 
 const remove = async (verifyToken: string): Promise<boolean> => {

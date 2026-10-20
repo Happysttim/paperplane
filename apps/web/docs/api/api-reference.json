@@ -1,0 +1,4496 @@
+{
+  "title": "Paperplane 구현 API Request / Response 명세",
+  "documentVersion": "1.0.0",
+  "updatedAt": "2026-10-18",
+  "timezone": "Asia/Seoul",
+  "format": "API 목록 JSON. OpenAPI 문서가 아닙니다. schema는 JSON Schema 문법을 사용하며 $ref는 이 파일의 $defs를 참조합니다.",
+  "basis": "현재 작업 트리의 route/index.ts, controller, payload, query, schema 기준. 실행 응답을 녹화한 자료가 아닌 코드 기반 계약과 가상 예시입니다.",
+  "endpointCount": 30,
+  "basePath": "/api/v1",
+  "serverOrigin": "환경별 API origin을 사용합니다. 아래 path는 전체 경로입니다.",
+  "conventions": {
+    "requestContentType": "JSON 본문이 있으면 application/json. GET/본문 미사용 API의 request.body=null은 본문을 보내지 않는다는 의미입니다.",
+    "responseContentType": "application/json",
+    "success": {
+      "status": "ok",
+      "data": "API별 데이터. 없는 경우 data 키 자체 생략"
+    },
+    "failure": {
+      "status": "failed",
+      "error": "오류 문자열"
+    },
+    "dateSerialization": "DB Date는 ISO 8601 문자열로 직렬화. created_at/updated_at과 createdAt/verifiedAt은 현재 코드의 이름을 그대로 유지.",
+    "examples": "토큰 자리표시자·주소·ID·시각은 예시이며 실제 자격증명이 아닙니다. 코드 123456은 문서 예시일 뿐 API의 고정 인증 코드가 아닙니다.",
+    "validation": "필수/선택 필드는 schema.required 참조. Zod 객체의 알 수 없는 키는 기본적으로 제거됩니다. 제약은 schema와 notes를 함께 확인합니다.",
+    "credentials": "쿠키가 필요한 요청은 브라우저 fetch에서 credentials: include. WEB_ORIGIN과 CORS 설정 필요.",
+    "premium": "프리미엄 API 없음."
+  },
+  "authentication": {
+    "accessToken": {
+      "header": "Authorization: Bearer <access-token>",
+      "payload": {
+        "type": "accessToken",
+        "claims": {
+          "id": 1
+        },
+        "iat": 1792281600,
+        "exp": 1792282500
+      },
+      "lifetimeSeconds": 900,
+      "algorithm": "RS256",
+      "notes": [
+        "sessionId claim 없음. authorization 미들웨어는 JWT 검증 후 next(). DB 세션 조회 없음.",
+        "로그아웃·비밀번호 변경·refresh 회전은 기존 access token을 즉시 폐기하지 않습니다. 리소스 소유권/존재 확인은 핸들러에서 수행합니다."
+      ]
+    },
+    "csrf": {
+      "header": "x-paperplane-csrf",
+      "cookie": "sessionToken",
+      "obtain": "GET /api/v1/auth/csrf",
+      "notes": [
+        "공개 인증 API를 포함한 일반 POST/PATCH/DELETE와 GET /verify/oauth에 필요. 내부 HMAC API는 예외.",
+        "가입·로그인·기존 소셜 회원 로그인 응답은 새 csrfToken/sessionToken을 발급하므로 함께 교체."
+      ]
+    },
+    "refreshToken": {
+      "cookie": "refreshToken",
+      "lifetimeSeconds": 86400,
+      "storage": "HttpOnly cookie, DB에는 SHA-256 해시 저장",
+      "sessionCookieLifetimeSeconds": 604800
+    },
+    "verification": {
+      "header": "x-paperplane-verify",
+      "lifetimeSeconds": 1800,
+      "usedBy": [
+        "POST /auth/register",
+        "POST /auth/password/reset",
+        "POST /verify/code"
+      ]
+    },
+    "internalHmac": {
+      "algorithm": "HMAC-SHA256 hex",
+      "canonicalString": "METHOD + \".\" + originalUrl + \".\" + x-request-id + \".\" + x-paperplane-timestamp + \".\" + SHA256(rawRequestBody)",
+      "headers": {
+        "x-paperplane-timestamp": "현재 Unix 밀리초 13자리 문자열, ±300000ms 허용",
+        "x-request-id": "UUID, 600초간 중복 요청 거부",
+        "x-paperplane-signature": "공유 HMAC 키로 서명한 64자리 hex"
+      },
+      "notes": [
+        "rawRequestBody는 실제 전송한 JSON 문자열의 UTF-8 바이트와 일치해야 합니다. originalUrl에는 쿼리 문자열이 있으면 포함됩니다.",
+        "이 키를 브라우저에 노출하지 않습니다."
+      ]
+    }
+  },
+  "commonErrors": {
+    "invalidInput": {
+      "httpStatus": 400,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Invalid input"
+      }
+    },
+    "invalidJson": {
+      "httpStatus": 400,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Invalid JSON"
+      }
+    },
+    "bodyTooLarge": {
+      "httpStatus": 413,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Payload too large"
+      }
+    },
+    "unauthorized": {
+      "httpStatus": 401,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "unauthorized"
+      }
+    },
+    "rateLimit": {
+      "httpStatus": 429,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "too many requests"
+      },
+      "headers": {
+        "Retry-After": "60"
+      }
+    },
+    "rateLimitUnavailable": {
+      "httpStatus": 503,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "rate limit unavailable"
+      }
+    },
+    "unexpectedError": {
+      "httpStatus": 500,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Internal server error"
+      }
+    },
+    "expiredSignature": {
+      "httpStatus": 401,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Expired signature"
+      }
+    },
+    "invalidSignature": {
+      "httpStatus": 401,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Invalid signature"
+      }
+    },
+    "replayedRequest": {
+      "httpStatus": 409,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Request already used"
+      }
+    },
+    "unmatchedRoute": {
+      "httpStatus": 404,
+      "schema": {
+        "$ref": "#/$defs/Error"
+      },
+      "payload": {
+        "status": "failed",
+        "error": "Not found"
+      },
+      "notes": [
+        "/api/v1의 알 수 없는 경로도 앞선 CSRF·authorization 검증에 따라 401이 먼저 반환될 수 있습니다."
+      ]
+    }
+  },
+  "$defs": {
+    "RegExpValue": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "middle",
+            "prefix",
+            "suffix"
+          ]
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "value"
+      ]
+    },
+    "TextRule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "and",
+            "or"
+          ]
+        },
+        "regexp": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RegExpValue"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "regexp"
+      ]
+    },
+    "AttachmentRule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "and",
+            "or"
+          ]
+        },
+        "attachment": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filename": {
+                "$ref": "#/$defs/RegExpValue"
+              },
+              "ext": {
+                "type": "string"
+              }
+            },
+            "required": []
+          }
+        }
+      },
+      "required": [
+        "type",
+        "attachment"
+      ]
+    },
+    "DateRange": {
+      "type": "object",
+      "properties": {
+        "startDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [],
+      "description": "JSON에서는 ISO 날짜 문자열 권장. 서버는 z.coerce.date()로 변환하며 startDate <= endDate를 검사합니다. JSON Schema는 권장 전송 형식을 나타냅니다."
+    },
+    "PostRule": {
+      "type": "object",
+      "properties": {
+        "newsletter": {
+          "enum": [
+            true,
+            false,
+            "all"
+          ]
+        },
+        "subject": {
+          "$ref": "#/$defs/TextRule"
+        },
+        "name": {
+          "$ref": "#/$defs/TextRule"
+        },
+        "from": {
+          "$ref": "#/$defs/TextRule"
+        },
+        "content": {
+          "$ref": "#/$defs/TextRule"
+        },
+        "date": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DateRange"
+          }
+        },
+        "attachment": {
+          "$ref": "#/$defs/AttachmentRule"
+        }
+      },
+      "required": [
+        "newsletter"
+      ]
+    },
+    "ForwardRule": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "and",
+              "or"
+            ]
+          },
+          "postRule": {
+            "$ref": "#/$defs/PostRule"
+          }
+        },
+        "required": [
+          "type",
+          "postRule"
+        ]
+      },
+      "description": "바깥 배열의 그룹은 OR. 빈 배열은 모든 메일 일치. 그룹 내부는 type에 따른 AND/OR. newsletter=all은 검사 생략. text regexp는 정규식 실행이 아닌 대소문자 무시 문자열 검색입니다."
+    },
+    "Mail": {
+      "type": "object",
+      "properties": {
+        "headers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ]
+          }
+        },
+        "envelope": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string"
+            },
+            "recipients": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "email"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "from",
+            "recipients"
+          ]
+        },
+        "from": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "address": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          "required": [
+            "name",
+            "address"
+          ]
+        },
+        "subject": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content": {
+          "type": "string"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filename": {
+                "type": "string"
+              },
+              "contentType": {
+                "type": "string"
+              },
+              "size": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "filename",
+              "contentType",
+              "size"
+            ]
+          }
+        },
+        "contentSize": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "headers",
+        "envelope",
+        "from",
+        "subject",
+        "date",
+        "content",
+        "attachments",
+        "contentSize"
+      ]
+    },
+    "PostRecord": {
+      "type": "object",
+      "properties": {
+        "attachment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "from": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "newsletter": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "attachment",
+        "content",
+        "date",
+        "from",
+        "name",
+        "subject",
+        "newsletter"
+      ]
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provider": {
+          "enum": [
+            "local",
+            "google",
+            "naver"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "provider",
+        "createdAt"
+      ]
+    },
+    "Domain": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Email": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "userId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "src": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "domainId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "src",
+        "domainId",
+        "created_at"
+      ]
+    },
+    "Forward": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "emailId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForwardRule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dest": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        }
+      },
+      "required": [
+        "id",
+        "emailId",
+        "rule",
+        "created_at",
+        "updated_at",
+        "dest"
+      ]
+    },
+    "Destination": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "userId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "address": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "address",
+        "verifiedAt"
+      ]
+    },
+    "Delivery": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eventId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "emailId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "destination": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "sent",
+            "failed",
+            "retrying"
+          ]
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "eventId",
+        "emailId",
+        "destination",
+        "messageId",
+        "status",
+        "detail",
+        "createdAt"
+      ]
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "failed"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "AuthTokens": {
+      "type": "object",
+      "properties": {
+        "csrfToken": {
+          "type": "string"
+        },
+        "accessToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "csrfToken",
+        "accessToken"
+      ]
+    },
+    "LocalRegistration": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "const": "local"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "description": "특수문자 !@#$%^&*()_+-=[]{};'\":\\|,.<>/? 중 하나 이상. 저장·비교 전 trim 적용."
+        },
+        "passwordConfirm": {
+          "type": "string",
+          "minLength": 8,
+          "description": "특수문자 !@#$%^&*()_+-=[]{};'\":\\|,.<>/? 중 하나 이상. 저장·비교 전 trim 적용."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 8
+        }
+      },
+      "required": [
+        "provider",
+        "email",
+        "password",
+        "passwordConfirm",
+        "name"
+      ]
+    },
+    "SocialRegistration": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "enum": [
+            "google",
+            "naver"
+          ]
+        },
+        "providerId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 8
+        }
+      },
+      "required": [
+        "provider",
+        "providerId",
+        "name"
+      ]
+    },
+    "EmailWithForwards": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Email"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "forwards": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Forward"
+              }
+            },
+            "totalForwards": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "forwards",
+            "totalForwards"
+          ]
+        }
+      ]
+    }
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "category": "상태",
+      "summary": "프로세스 상태",
+      "source": "apps/api/src/route/index.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {},
+        "cookies": {},
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [],
+      "commonErrors": [
+        "unexpectedError"
+      ],
+      "rateLimit": null,
+      "notes": []
+    },
+    {
+      "method": "GET",
+      "path": "/ready",
+      "category": "상태",
+      "summary": "DB·Redis 준비 상태",
+      "source": "apps/api/src/route/index.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {},
+        "cookies": {},
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 503,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Dependencies unavailable"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError"
+      ],
+      "rateLimit": null,
+      "notes": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/csrf",
+      "category": "인증",
+      "summary": "CSRF 토큰과 세션 쿠키 발급",
+      "source": "apps/api/src/route/index.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {},
+        "cookies": {},
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {
+            "Set-Cookie": "sessionToken=<session-token>; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800 (운영: Secure)"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "csrfToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "csrfToken"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "csrfToken": "<csrf-token>"
+            }
+          }
+        }
+      ],
+      "errors": [],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "category": "인증",
+      "summary": "회원가입",
+      "source": "apps/api/src/controller/v1/auth.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": true,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-csrf": "<csrf-token>",
+          "x-paperplane-verify": "<verify-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/LocalRegistration"
+              },
+              {
+                "$ref": "#/$defs/SocialRegistration"
+              }
+            ]
+          },
+          "payload": {
+            "provider": "local",
+            "email": "user@example.com",
+            "password": "Example!123",
+            "passwordConfirm": "Example!123",
+            "name": "지민"
+          },
+          "variants": [
+            {
+              "provider": "google",
+              "providerId": "provider-user-id",
+              "name": "지민"
+            },
+            {
+              "provider": "naver",
+              "providerId": "provider-user-id",
+              "name": "지민"
+            }
+          ]
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {
+            "Set-Cookie": "sessionToken=<session-token>; Path=/; HttpOnly; SameSite=Lax (운영: Secure, Max-Age=604800) 및 refreshToken=<refresh-token>; Path=/; HttpOnly; SameSite=Lax (운영: Secure, Max-Age=86400)"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/AuthTokens"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "csrfToken": "<csrf-token>",
+              "accessToken": "<access-token>"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid registration request"
+          }
+        },
+        {
+          "httpStatus": 409,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "email already exists"
+          }
+        },
+        {
+          "httpStatus": 500,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "internal server error"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 20,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "로컬: verify/email → verify/code 성공 후 호출. 소셜: verify/provider 신규 회원 결과 사용.",
+        "password와 passwordConfirm은 trim 후 같아야 합니다. 검증 토큰은 가입 시 소비됩니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "category": "인증",
+      "summary": "이메일 로그인",
+      "source": "apps/api/src/controller/v1/auth.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              },
+              "password": {
+                "type": "string",
+                "minLength": 8,
+                "description": "특수문자 !@#$%^&*()_+-=[]{};'\":\\|,.<>/? 중 하나 이상. 저장·비교 전 trim 적용."
+              }
+            },
+            "required": [
+              "email",
+              "password"
+            ]
+          },
+          "payload": {
+            "email": "user@example.com",
+            "password": "Example!123"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {
+            "Set-Cookie": "sessionToken=<session-token>; Path=/; HttpOnly; SameSite=Lax (운영: Secure, Max-Age=604800) 및 refreshToken=<refresh-token>; Path=/; HttpOnly; SameSite=Lax (운영: Secure, Max-Age=86400)"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/AuthTokens"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "csrfToken": "<csrf-token>",
+              "accessToken": "<access-token>"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid input data"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid user"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 20,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/password/reset",
+      "category": "인증",
+      "summary": "비밀번호 재설정",
+      "source": "apps/api/src/controller/v1/auth.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": true,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-csrf": "<csrf-token>",
+          "x-paperplane-verify": "<verify-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "password": {
+                "type": "string",
+                "minLength": 8,
+                "description": "특수문자 !@#$%^&*()_+-=[]{};'\":\\|,.<>/? 중 하나 이상. 저장·비교 전 trim 적용."
+              },
+              "passwordConfirm": {
+                "type": "string",
+                "minLength": 8,
+                "description": "특수문자 !@#$%^&*()_+-=[]{};'\":\\|,.<>/? 중 하나 이상. 저장·비교 전 trim 적용."
+              }
+            },
+            "required": [
+              "password",
+              "passwordConfirm"
+            ]
+          },
+          "payload": {
+            "password": "NewExample!123",
+            "passwordConfirm": "NewExample!123"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid input data"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid password reset token"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "password reset verification required"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid password reset request"
+          }
+        },
+        {
+          "httpStatus": 500,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "internal server error"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 20,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "type=password 인증 메일과 코드 검증 선행. 확인값은 trim 후 같아야 합니다.",
+        "비밀번호 변경과 모든 refresh 세션 폐기는 같은 DB 트랜잭션에서 수행합니다. 기존 access token은 만료까지 유효합니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "category": "인증",
+      "summary": "토큰 재발급",
+      "source": "apps/api/src/controller/v1/auth.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": true,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>",
+          "refreshToken": "<refresh-token>"
+        },
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {
+            "Set-Cookie": "refreshToken=<new-refresh-token>; HttpOnly; Path=/; SameSite=Lax; Max-Age=86400 (운영: Secure)"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "accessToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "accessToken"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "accessToken": "<access-token>"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid input data"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "invalid refresh token"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "JSON 본문 불필요. 기존 refresh 세션을 원자적으로 폐기하고 새 세션 생성. 동일 refresh token 재사용 불가. 기존 access token은 만료까지 유효. csrfToken은 재발급하지 않습니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "category": "인증",
+      "summary": "로그아웃",
+      "source": "apps/api/src/controller/v1/account.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": null,
+        "optionalCookies": {
+          "refreshToken": "<refresh-token>"
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {
+            "Set-Cookie": "sessionToken 및 refreshToken 쿠키 만료"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "JSON 본문 불필요. refreshToken 쿠키는 선택 사항이며 있으면 해당 세션 폐기. CSRF 검증은 필수. access token 자체는 만료까지 유효."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/verify/oauth",
+      "category": "인증 검증",
+      "summary": "소셜 인증 URL 생성",
+      "source": "apps/api/src/controller/v1/verify.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {
+          "provider": {
+            "schema": {
+              "enum": [
+                "google",
+                "naver"
+              ]
+            },
+            "required": true,
+            "example": "google"
+          }
+        },
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "authorization": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "authorization"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "authorization": "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=<client-id>&redirect_uri=<callback-url>&state=<state>&scope=openid"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 503,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "OAuth unavailable"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "GET이지만 CSRF 헤더·세션 쿠키가 필요합니다. state는 해당 브라우저 세션에 묶이며 5분 유효합니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/verify/provider",
+      "category": "인증 검증",
+      "summary": "소셜 인증 결과 검증",
+      "source": "apps/api/src/controller/v1/verify.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "enum": [
+                      "google",
+                      "naver"
+                    ]
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "code",
+                  "state"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "const": "google"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "error"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "const": "naver"
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "error_description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "error",
+                  "error_description"
+                ]
+              }
+            ]
+          },
+          "payload": {
+            "provider": "google",
+            "code": "<authorization-code>",
+            "state": "<state>"
+          },
+          "variants": [
+            {
+              "provider": "naver",
+              "code": "<authorization-code>",
+              "state": "<state>"
+            },
+            {
+              "provider": "google",
+              "error": "access_denied"
+            },
+            {
+              "provider": "naver",
+              "error": "access_denied",
+              "error_description": "사용자 거절"
+            }
+          ]
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "기존 회원",
+          "headers": {
+            "Set-Cookie": "sessionToken=<session-token>; Path=/; HttpOnly; SameSite=Lax (운영: Secure, Max-Age=604800) 및 refreshToken=<refresh-token>; Path=/; HttpOnly; SameSite=Lax (운영: Secure, Max-Age=86400)"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/AuthTokens"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "csrfToken": "<csrf-token>",
+              "accessToken": "<access-token>"
+            }
+          }
+        },
+        {
+          "httpStatus": 200,
+          "condition": "신규 회원: register 호출 필요",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "verifyToken": {
+                    "type": "string"
+                  },
+                  "providerId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "verifyToken",
+                  "providerId"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "verifyToken": "<verify-token>",
+              "providerId": "provider-user-id"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "OAuth provider rejected authorization"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid OAuth state"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "OAuth verification failed"
+          }
+        },
+        {
+          "httpStatus": 503,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Session creation failed"
+          }
+        },
+        {
+          "httpStatus": 503,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Verification unavailable"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "state는 1회 소비. OAuth 시작 시 사용한 sessionToken 유지."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/verify/email",
+      "category": "인증 검증",
+      "summary": "가입·비밀번호 복구 인증 메일",
+      "source": "apps/api/src/controller/v1/verify.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "register",
+                  "password"
+                ]
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              }
+            },
+            "required": [
+              "type",
+              "email"
+            ]
+          },
+          "payload": {
+            "type": "register",
+            "email": "user@example.com"
+          },
+          "variants": [
+            {
+              "type": "password",
+              "email": "user@example.com"
+            }
+          ]
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 201,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "verifyToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "verifyToken"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "verifyToken": "<verify-token>"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid verification request"
+          }
+        },
+        {
+          "httpStatus": 429,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Wait before requesting another email"
+          }
+        },
+        {
+          "httpStatus": 502,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Email delivery failed"
+          }
+        },
+        {
+          "httpStatus": 503,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Verification unavailable"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 10,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "type=password이면 기존 local 사용자만 가능. 같은 이메일 재요청 간격 30초. verify token은 30분 유효.",
+        "재요청 제한 응답에는 Retry-After 초 헤더가 포함됩니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/verify/code",
+      "category": "인증 검증",
+      "summary": "이메일 인증 코드 확인",
+      "source": "apps/api/src/controller/v1/verify.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": true,
+        "verificationToken": true,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-csrf": "<csrf-token>",
+          "x-paperplane-verify": "<verify-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^\\d{6}$"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "payload": {
+            "code": "123456"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid verification"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid verification code"
+          }
+        },
+        {
+          "httpStatus": 429,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Too many verification attempts"
+          }
+        },
+        {
+          "httpStatus": 503,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Verification unavailable"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 20,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "6자리 코드. 토큰별 시도 카운트가 5회를 초과하면 429. 성공 후 기존 verifyToken을 register 또는 password/reset에서 사용."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "category": "계정",
+      "summary": "내 정보 조회",
+      "source": "apps/api/src/controller/v1/account.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Authorization": "Bearer <access-token>"
+        },
+        "cookies": {},
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/User"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "name": "지민",
+              "email": "user@example.com",
+              "provider": "local",
+              "createdAt": "2026-10-18T00:00:00.000Z"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "User not found"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "소셜 계정의 email은 null일 수 있습니다. 비밀번호·providerId·premium 필드는 응답하지 않습니다."
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/users/me",
+      "category": "계정",
+      "summary": "내 이름 변경",
+      "source": "apps/api/src/controller/v1/account.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 8
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "payload": {
+            "name": "지민"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/User"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "name": "지민",
+              "email": "user@example.com",
+              "provider": "local",
+              "createdAt": "2026-10-18T00:00:00.000Z"
+            }
+          }
+        },
+        {
+          "httpStatus": 200,
+          "condition": "JWT는 유효하지만 사용자가 이미 삭제된 경우: 현재 구현은 data를 생략",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "trim 후 2~8자."
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/users/me",
+      "category": "계정",
+      "summary": "계정 탈퇴",
+      "source": "apps/api/src/controller/v1/account.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "confirm": {
+                "const": true
+              }
+            },
+            "required": [
+              "confirm"
+            ]
+          },
+          "payload": {
+            "confirm": true
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {
+            "Set-Cookie": "sessionToken 및 refreshToken 쿠키 만료"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "연결된 주소·규칙·목적지·전달 기록·세션도 FK cascade로 삭제합니다."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/domains",
+      "category": "주소",
+      "summary": "사용 가능한 도메인 조회",
+      "source": "apps/api/src/controller/v1/account.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Authorization": "Bearer <access-token>"
+        },
+        "cookies": {},
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Domain"
+                }
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": [
+              {
+                "id": 1,
+                "name": "paperplane.example"
+              }
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/email",
+      "category": "주소",
+      "summary": "가상 이메일 주소 생성",
+      "source": "apps/api/src/controller/v1/email.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "src": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              }
+            },
+            "required": [
+              "src"
+            ]
+          },
+          "payload": {
+            "src": "work@paperplane.example"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 201,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/Email"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "userId": 1,
+              "src": "work@paperplane.example",
+              "domainId": 1,
+              "created_at": "2026-10-18T00:00:00.000Z"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Unsupported email domain"
+          }
+        },
+        {
+          "httpStatus": 409,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Email already exists"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "완전한 이메일 주소를 전달합니다. 소문자로 정규화하며 등록된 도메인만 허용."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/email",
+      "category": "주소",
+      "summary": "내 주소와 전달 규칙 목록",
+      "source": "apps/api/src/controller/v1/email.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Authorization": "Bearer <access-token>"
+        },
+        "cookies": {},
+        "query": {
+          "page": {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            },
+            "required": false,
+            "example": 1
+          }
+        },
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "emails": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/EmailWithForwards"
+                    }
+                  },
+                  "pages": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "now": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "emails",
+                  "pages",
+                  "total",
+                  "now"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "emails": [
+                {
+                  "id": 1,
+                  "userId": 1,
+                  "src": "work@paperplane.example",
+                  "domainId": 1,
+                  "created_at": "2026-10-18T00:00:00.000Z",
+                  "forwards": [
+                    {
+                      "id": 1,
+                      "emailId": 1,
+                      "rule": [
+                        {
+                          "type": "and",
+                          "postRule": {
+                            "newsletter": "all",
+                            "subject": {
+                              "type": "and",
+                              "regexp": [
+                                {
+                                  "type": "middle",
+                                  "value": "프로젝트"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "created_at": "2026-10-18T00:00:00.000Z",
+                      "updated_at": "2026-10-18T00:00:00.000Z",
+                      "dest": "hello@example.com"
+                    }
+                  ],
+                  "totalForwards": 1
+                }
+              ],
+              "pages": 1,
+              "total": 1,
+              "now": 1
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "페이지당 10개. 주소 ID 내림차순. 빈 목록은 emails=[], pages=0, total=0."
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/email",
+      "category": "주소",
+      "summary": "내 주소 삭제",
+      "source": "apps/api/src/controller/v1/email.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "emailId": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "emailId"
+            ]
+          },
+          "payload": {
+            "emailId": 1
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Email not found"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "해당 주소의 전달 규칙과 기록도 삭제합니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/forward",
+      "category": "전달 규칙",
+      "summary": "전달 규칙 추가",
+      "source": "apps/api/src/controller/v1/forward.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "emailId": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rule": {
+                "$ref": "#/$defs/ForwardRule"
+              },
+              "dest": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              }
+            },
+            "required": [
+              "emailId",
+              "rule",
+              "dest"
+            ]
+          },
+          "payload": {
+            "emailId": 1,
+            "rule": [
+              {
+                "type": "and",
+                "postRule": {
+                  "newsletter": "all",
+                  "subject": {
+                    "type": "and",
+                    "regexp": [
+                      {
+                        "type": "middle",
+                        "value": "프로젝트"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "dest": "hello@example.com"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 201,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/Forward"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "emailId": 1,
+              "rule": [
+                {
+                  "type": "and",
+                  "postRule": {
+                    "newsletter": "all",
+                    "subject": {
+                      "type": "and",
+                      "regexp": [
+                        {
+                          "type": "middle",
+                          "value": "프로젝트"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "created_at": "2026-10-18T00:00:00.000Z",
+              "updated_at": "2026-10-18T00:00:00.000Z",
+              "dest": "hello@example.com"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Forwarding to a service domain is not allowed"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Destination verification required"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Email not found"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "본인 주소와 본인이 인증한 외부 목적지만 허용. rule=[]이면 모든 메일에 일치합니다."
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/forward",
+      "category": "전달 규칙",
+      "summary": "전달 규칙 변경",
+      "source": "apps/api/src/controller/v1/forward.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "emailId": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "forwardId": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rule": {
+                "$ref": "#/$defs/ForwardRule"
+              },
+              "dest": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              }
+            },
+            "required": [
+              "emailId",
+              "forwardId"
+            ]
+          },
+          "payload": {
+            "emailId": 1,
+            "forwardId": 1,
+            "rule": [
+              {
+                "type": "and",
+                "postRule": {
+                  "newsletter": "all",
+                  "subject": {
+                    "type": "and",
+                    "regexp": [
+                      {
+                        "type": "middle",
+                        "value": "프로젝트"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/Forward"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "emailId": 1,
+              "rule": [
+                {
+                  "type": "and",
+                  "postRule": {
+                    "newsletter": "all",
+                    "subject": {
+                      "type": "and",
+                      "regexp": [
+                        {
+                          "type": "middle",
+                          "value": "프로젝트"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "created_at": "2026-10-18T00:00:00.000Z",
+              "updated_at": "2026-10-18T00:00:00.000Z",
+              "dest": "hello@example.com"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Forwarding to a service domain is not allowed"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Destination verification required"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Email not found"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Forward not found"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "rule 또는 dest 중 하나 이상 필수. 생략한 항목은 기존 값 유지."
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/forward",
+      "category": "전달 규칙",
+      "summary": "전달 규칙 삭제",
+      "source": "apps/api/src/controller/v1/forward.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "emailId": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "forwardId": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "emailId",
+              "forwardId"
+            ]
+          },
+          "payload": {
+            "emailId": 1,
+            "forwardId": 1
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Email not found"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Forward not found"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/forward/test",
+      "category": "전달 규칙",
+      "summary": "샘플 메일 조건 판정",
+      "source": "apps/api/src/controller/v1/forward.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "rule": {
+                "$ref": "#/$defs/ForwardRule"
+              },
+              "mail": {
+                "$ref": "#/$defs/Mail"
+              }
+            },
+            "required": [
+              "rule",
+              "mail"
+            ]
+          },
+          "payload": {
+            "rule": [
+              {
+                "type": "and",
+                "postRule": {
+                  "newsletter": "all",
+                  "subject": {
+                    "type": "and",
+                    "regexp": [
+                      {
+                        "type": "middle",
+                        "value": "프로젝트"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "mail": {
+              "headers": [],
+              "envelope": {
+                "from": "sender@example.com",
+                "recipients": [
+                  "work@paperplane.example"
+                ]
+              },
+              "from": {
+                "name": "보낸 사람",
+                "address": "sender@example.com"
+              },
+              "subject": "프로젝트 제안",
+              "date": "2026-10-18T00:00:00.000Z",
+              "content": "프로젝트 제안입니다.",
+              "attachments": [
+                {
+                  "filename": "proposal.pdf",
+                  "contentType": "application/pdf",
+                  "size": 1024
+                }
+              ],
+              "contentSize": 2048
+            }
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "matches": {
+                    "type": "boolean"
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    }
+                  },
+                  "record": {
+                    "$ref": "#/$defs/PostRecord"
+                  }
+                },
+                "required": [
+                  "matches",
+                  "groups",
+                  "record"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "matches": true,
+              "groups": [
+                true
+              ],
+              "record": {
+                "attachment": [
+                  "proposal.pdf"
+                ],
+                "content": "프로젝트 제안입니다.",
+                "date": "2026-10-18T00:00:00.000Z",
+                "from": "sender@example.com",
+                "name": "보낸 사람",
+                "subject": "프로젝트 제안",
+                "newsletter": false
+              }
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "저장·실제 발송 없음. groups는 입력 rule의 각 그룹 판정 결과. newsletter는 List-Id/List-Unsubscribe 또는 Precedence: bulk/list 헤더로 판정."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/destinations/verify",
+      "category": "목적지",
+      "summary": "받는 메일함 인증 요청",
+      "source": "apps/api/src/controller/v1/destination.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              }
+            },
+            "required": [
+              "address"
+            ]
+          },
+          "payload": {
+            "address": "hello@example.com"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 201,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "verificationToken": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "expiresIn": {
+                    "const": 600
+                  }
+                },
+                "required": [
+                  "verificationToken",
+                  "expiresIn"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "verificationToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresIn": 600
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Destination must be outside service domains"
+          }
+        },
+        {
+          "httpStatus": 429,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Wait before requesting another code"
+          }
+        },
+        {
+          "httpStatus": 502,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Verification email failed"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 10,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "외부 도메인만 허용. 사용자·주소별 재요청 간격 60초. verificationToken은 JWT가 아닌 임의의 64자리 hex 문자열."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/destinations/confirm",
+      "category": "목적지",
+      "summary": "받는 메일함 인증 확정",
+      "source": "apps/api/src/controller/v1/destination.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "verificationToken": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^\\d{6}$"
+              }
+            },
+            "required": [
+              "verificationToken",
+              "code"
+            ]
+          },
+          "payload": {
+            "verificationToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "code": "123456"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/Destination"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "userId": 1,
+              "address": "hello@example.com",
+              "verifiedAt": "2026-10-18T00:00:00.000Z"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid or expired verification"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": 20,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "10분 이내 1회 시도. 잘못된 코드도 토큰을 소비하므로 재요청 필요. 이미 등록된 주소는 verifiedAt을 갱신."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/destinations",
+      "category": "목적지",
+      "summary": "인증된 받는 메일함 목록",
+      "source": "apps/api/src/controller/v1/destination.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Authorization": "Bearer <access-token>"
+        },
+        "cookies": {},
+        "query": {},
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Destination"
+                }
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": [
+              {
+                "id": 1,
+                "userId": 1,
+                "address": "hello@example.com",
+                "verifiedAt": "2026-10-18T00:00:00.000Z"
+              }
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/destinations",
+      "category": "목적지",
+      "summary": "받는 메일함 삭제",
+      "source": "apps/api/src/controller/v1/destination.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": true,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <access-token>",
+          "x-paperplane-csrf": "<csrf-token>"
+        },
+        "cookies": {
+          "sessionToken": "<session-token>"
+        },
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "destinationId": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "destinationId"
+            ]
+          },
+          "payload": {
+            "destinationId": 1
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "payload": {
+            "status": "ok"
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        },
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Destination not found"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "목적지 삭제와 그 목적지로 향하는 본인 전달 규칙 삭제는 같은 트랜잭션입니다."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/deliveries",
+      "category": "전달 기록",
+      "summary": "내 전달 처리 기록",
+      "source": "apps/api/src/controller/v1/delivery.ts",
+      "authentication": {
+        "accessToken": true,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": false
+      },
+      "request": {
+        "headers": {
+          "Authorization": "Bearer <access-token>"
+        },
+        "cookies": {},
+        "query": {
+          "page": {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            },
+            "required": false,
+            "example": 1
+          }
+        },
+        "body": null
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "deliveries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "delivery": {
+                          "$ref": "#/$defs/Delivery"
+                        },
+                        "source": {
+                          "type": "string",
+                          "format": "email",
+                          "maxLength": 254
+                        }
+                      },
+                      "required": [
+                        "delivery",
+                        "source"
+                      ]
+                    }
+                  },
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "deliveries",
+                  "total",
+                  "page"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "deliveries": [
+                {
+                  "delivery": {
+                    "id": 1,
+                    "eventId": "11111111-1111-4111-8111-111111111111",
+                    "emailId": 1,
+                    "destination": "hello@example.com",
+                    "messageId": "<demo@example.com>",
+                    "status": "sent",
+                    "detail": "250 OK",
+                    "createdAt": "2026-10-18T00:00:00.000Z"
+                  },
+                  "source": "work@paperplane.example"
+                }
+              ],
+              "total": 1,
+              "page": 1
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 400,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Invalid input"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "unauthorized"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "페이지당 20개, 기록 ID 내림차순. 전체 페이지 수 필드는 없으며 total로 계산합니다."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/router",
+      "category": "내부 SMTP",
+      "summary": "수신 메일의 전달 대상·조건 판정",
+      "source": "apps/api/src/controller/v1/router.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": true
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-timestamp": "1792281600000",
+          "x-request-id": "22222222-2222-4222-8222-222222222222",
+          "x-paperplane-signature": "<hmac-sha256-hex>"
+        },
+        "cookies": {},
+        "query": {},
+        "body": {
+          "schema": {
+            "$ref": "#/$defs/Mail"
+          },
+          "payload": {
+            "headers": [],
+            "envelope": {
+              "from": "sender@example.com",
+              "recipients": [
+                "work@paperplane.example"
+              ]
+            },
+            "from": {
+              "name": "보낸 사람",
+              "address": "sender@example.com"
+            },
+            "subject": "프로젝트 제안",
+            "date": "2026-10-18T00:00:00.000Z",
+            "content": "프로젝트 제안입니다.",
+            "attachments": [
+              {
+                "filename": "proposal.pdf",
+                "contentType": "application/pdf",
+                "size": 1024
+              }
+            ],
+            "contentSize": 2048
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 200,
+          "condition": "성공",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "format": "email",
+                      "maxLength": 254
+                    },
+                    "destination": {
+                      "type": "string",
+                      "format": "email",
+                      "maxLength": 254
+                    },
+                    "matches": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "destination",
+                    "matches"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": [
+              {
+                "source": "work@paperplane.example",
+                "destination": "hello@example.com",
+                "matches": true
+              }
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "invalidInput",
+        "expiredSignature",
+        "invalidSignature",
+        "replayedRequest"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "브라우저용 API가 아닙니다. 인증된 목적지와 연결된 규칙만 반환. matches=false 항목도 반환하므로 발송 전에 확인. 해당 규칙이 없으면 data=[]. 실제 발송 없음."
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/internal/deliveries",
+      "category": "내부 SMTP",
+      "summary": "전달 처리 이벤트 저장",
+      "source": "apps/api/src/controller/v1/delivery.ts",
+      "authentication": {
+        "accessToken": false,
+        "csrf": false,
+        "verificationToken": false,
+        "refreshCookie": false,
+        "internalHmac": true
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "x-paperplane-timestamp": "1792281600000",
+          "x-request-id": "22222222-2222-4222-8222-222222222222",
+          "x-paperplane-signature": "<hmac-sha256-hex>"
+        },
+        "cookies": {},
+        "query": {},
+        "body": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "eventId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "source": {
+                "type": "string",
+                "format": "email"
+              },
+              "destination": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254
+              },
+              "messageId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "status": {
+                "enum": [
+                  "sent",
+                  "failed",
+                  "retrying"
+                ]
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "eventId",
+              "source",
+              "destination",
+              "messageId",
+              "status"
+            ]
+          },
+          "payload": {
+            "eventId": "11111111-1111-4111-8111-111111111111",
+            "source": "work@paperplane.example",
+            "destination": "hello@example.com",
+            "messageId": "<demo@example.com>",
+            "status": "sent",
+            "detail": "250 OK"
+          }
+        }
+      },
+      "responses": [
+        {
+          "httpStatus": 201,
+          "condition": "새 이벤트 저장",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/Delivery"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "eventId": "11111111-1111-4111-8111-111111111111",
+              "emailId": 1,
+              "destination": "hello@example.com",
+              "messageId": "<demo@example.com>",
+              "status": "sent",
+              "detail": "250 OK",
+              "createdAt": "2026-10-18T00:00:00.000Z"
+            }
+          }
+        },
+        {
+          "httpStatus": 200,
+          "condition": "같은 eventId와 동일한 내용 재전송",
+          "headers": {},
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "data": {
+                "$ref": "#/$defs/Delivery"
+              }
+            },
+            "required": [
+              "status",
+              "data"
+            ]
+          },
+          "payload": {
+            "status": "ok",
+            "data": {
+              "id": 1,
+              "eventId": "11111111-1111-4111-8111-111111111111",
+              "emailId": 1,
+              "destination": "hello@example.com",
+              "messageId": "<demo@example.com>",
+              "status": "sent",
+              "detail": "250 OK",
+              "createdAt": "2026-10-18T00:00:00.000Z"
+            }
+          }
+        }
+      ],
+      "errors": [
+        {
+          "httpStatus": 404,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Route not found"
+          }
+        },
+        {
+          "httpStatus": 409,
+          "schema": {
+            "$ref": "#/$defs/Error"
+          },
+          "payload": {
+            "status": "failed",
+            "error": "Event ID conflict"
+          }
+        }
+      ],
+      "commonErrors": [
+        "unexpectedError",
+        "invalidJson",
+        "bodyTooLarge",
+        "rateLimit",
+        "rateLimitUnavailable",
+        "invalidInput",
+        "expiredSignature",
+        "invalidSignature",
+        "replayedRequest"
+      ],
+      "rateLimit": {
+        "perIpAndPathPer60Seconds": 120,
+        "additionalLimit": null,
+        "note": "현재 카운터 키는 path·limit·IP이며 HTTP method는 포함하지 않습니다."
+      },
+      "notes": [
+        "detail 생략 시 DB/응답에서는 null. 같은 eventId로 내용을 변경하면 409. 재전송할 때 HMAC용 x-request-id는 새 UUID를 사용합니다.",
+        "eventId는 UUID 검증. source는 최대 길이 검사를 별도로 하지 않으며 destination은 254자 제한."
+      ]
+    }
+  ],
+  "readingOrder": [
+    "GET /auth/csrf → POST /verify/email → POST /verify/code → POST /auth/register",
+    "GET /auth/csrf → POST /auth/login",
+    "GET /domains → POST /email → POST /destinations/verify → POST /destinations/confirm → POST /forward",
+    "GET /verify/oauth → 외부 소셜 인증 → POST /verify/provider → 신규이면 POST /auth/register"
+  ],
+  "sourceFiles": [
+    "apps/api/src/route/index.ts",
+    "apps/api/src/controller/v1/*.ts",
+    "apps/api/src/controller/middleware/*.ts",
+    "apps/api/src/payload/*.ts",
+    "apps/api/src/schema/index.ts",
+    "apps/api/src/schema/rules.ts",
+    "apps/api/src/query/*.ts",
+    "apps/api/src/jwt/utils.ts",
+    "apps/api/src/controller/utils.ts"
+  ]
+}

@@ -1,4 +1,8 @@
 /node_modules/
+/apps/web/node_modules/
+/apps/web/.env.local
+/apps/web/.env.*
+!/apps/web/.env.example
 
 /apps/api/node_modules/
 /apps/api/.env.production
@@ -9,3 +13,33 @@
 /apps/smtp/.env.development
 
 /packages/share/build/
+**/dist/
+**/.env
+**/.env.development
+**/*.key
+**/coverage/
+apps/api/.test-data/
+
+# 실제 환경 설정은 제외하고 값이 비어 있거나 예시인 템플릿만 공유합니다.
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/.env.exmaple
+
+# TLS 인증서, DKIM/JWT 개인키 및 인증 저장소는 로컬에만 보관합니다.
+**/*.pem
+**/*.private
+**/*.crt
+**/*.cer
+**/*.der
+**/*.p12
+**/*.pfx
+**/*.jks
+**/secrets/
+**/letsencrypt/
+**/acme.json
+
+# 로컬 작업 중 생성한 임시 파일과 로그는 커밋하지 않습니다.
+**/node_modules/
+.tmp/
+**/*.log

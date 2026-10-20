@@ -1,0 +1,50 @@
+# 컨테이너와 볼륨 이름에 사용하는 Compose 프로젝트 이름입니다.
+name: paperplane-database
+
+services:
+  postgres:
+    # 공식 PostgreSQL 이미지에 계정 초기화 스크립트를 추가한 로컬 이미지입니다.
+    image: paperplane/database:local
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      # 관리 계정은 초기화와 관리 작업 전용이며 API에서 사용하지 않습니다.
+      POSTGRES_USER: postgres
+      POSTGRES_DB: paperplane
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?관리 계정 비밀번호를 .env에 입력하세요}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      # 서비스별 로그인 비밀번호입니다. 계정 이름은 초기화 SQL에 고정되어 있습니다.
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?API 계정 비밀번호를 .env에 입력하세요}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?마이그레이션 계정 비밀번호를 .env에 입력하세요}
+      POSTFIX_DB_PASSWORD: ${POSTFIX_DB_PASSWORD:?Postfix 계정 비밀번호를 .env에 입력하세요}
+    ports:
+      # 호스트의 API 개발 서버에서 접속합니다. 외부 인터페이스에는 공개하지 않습니다.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # PostgreSQL 18 공식 이미지의 데이터 볼륨 경로입니다. 재생성 후에도 보존됩니다.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # TCP 포트로 확인하여 최초 초기화 중 임시 Unix 소켓 서버와 구분합니다.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d paperplane']
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    # 정상 종료 시 진행 중인 작업과 데이터 기록을 마칠 시간을 줍니다.
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+networks:
+  default:
+    # Postfix가 이 네트워크를 통해 postgres:5432에 접속합니다.
+    name: paperplane-database
+
+volumes:
+  # docker compose down은 보존하지만 down -v는 이 데이터까지 삭제합니다.
+  postgres-data:

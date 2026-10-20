@@ -1,0 +1,55 @@
+# Debian package paths; daemons do not use chroot in this container.
+compatibility_level = 3.6
+queue_directory = /var/spool/postfix
+command_directory = /usr/sbin
+daemon_directory = /usr/lib/postfix/sbin
+data_directory = /var/lib/postfix
+mail_owner = postfix
+setgid_group = postdrop
+inet_interfaces = all
+inet_protocols = ipv4
+
+# Runtime values are applied by docker-entrypoint.sh.
+myhostname = mail.paperplane.life
+myorigin = $myhostname
+mydestination =
+# DB에 등록된 도메인과 수신 주소만 SMTP RCPT 단계에서 허용합니다.
+relay_domains = pgsql:/etc/postfix/pgsql/relay-domains.cf
+relay_recipient_maps = pgsql:/etc/postfix/pgsql/relay-recipients.cf
+mynetworks = 127.0.0.0/8
+# Do not implicitly accept every subdomain of the configured relay domains.
+parent_domain_matches_subdomains = debug_peer_list,fast_flush_domains,mynetworks,permit_mx_backup_networks,qmqpd_authorized_clients,smtpd_access_maps
+
+# Accept only our domains on port 25, including connections from trusted peers.
+# The private reinjection listener has its own restrictions in master.cf.
+smtpd_relay_restrictions = reject_unauth_destination
+smtpd_recipient_restrictions = reject_non_fqdn_recipient,reject_unauth_destination
+smtpd_sasl_auth_enable = no
+disable_vrfy_command = yes
+smtpd_helo_required = yes
+smtpd_etrn_restrictions = reject
+
+# Preserve the original envelope until the application's API routing step.
+content_filter = scan:[host.docker.internal]:10025
+receive_override_options = no_address_mappings
+message_size_limit = 26214400
+smtp_header_checks =
+smtp_generic_maps =
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+
+# STARTTLS for public ingress, opportunistic TLS for remote MX delivery.
+smtpd_tls_security_level = may
+smtpd_tls_cert_file = /etc/postfix/tls/fullchain.pem
+smtpd_tls_key_file = /etc/postfix/tls/privkey.pem
+smtpd_tls_protocols = >=TLSv1.2
+smtp_tls_security_level = may
+smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+smtp_tls_protocols = >=TLSv1.2
+
+# Queue and logs belong to Postfix, not the application's process lifetime.
+maximal_queue_lifetime = 5d
+bounce_queue_lifetime = 5d
+delay_warning_time = 4h
+maillog_file = /dev/stdout
+multi_instance_directories =

@@ -5,10 +5,22 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx watch src/index.ts",
+    "build": "node scripts/build.mjs",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate --config src/drizzle.config.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "keys:generate": "node scripts/keys.mjs",
+    "db:upgrade-legacy": "tsx scripts/upgrade-legacy.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "1.0.0-rc.4",
     "express": "^5.2.1",
@@ -22,18 +34,24 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.3.1",
     "@types/pg": "^8.23.1",
     "@types/smtp-server": "^3.5.13",
     "drizzle-kit": "1.0.0-rc.4",
+    "esbuild": "^0.28.2",
     "eslint": "^10.8.1",
     "globals": "^17.11.0",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.67.0"
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^5.0.5"
   }
 }

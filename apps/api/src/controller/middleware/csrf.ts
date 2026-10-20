@@ -4,7 +4,6 @@ import type { NextFunction, Request, Response } from 'express';
 import { HttpStatus } from '../const';
 import jwt from '@/jwt';
 import { compareHmac } from '@/utils/hash';
-import { RANDOM_HMAC_SEED } from '@/utils/const';
 
 const verify = (
   req: Request,
@@ -35,7 +34,7 @@ const verify = (
     return;
   }
   const csrf = headerParse.data['x-paperplane-csrf'];
-  if (!compareHmac(cookie.sessionToken, csrf, RANDOM_HMAC_SEED)) {
+  if (!compareHmac(cookie.sessionToken, csrf)) {
     res
       .status(HttpStatus.UNAUTHORIZED)
       .send({ status: 'failed', error: 'unauthorized' });

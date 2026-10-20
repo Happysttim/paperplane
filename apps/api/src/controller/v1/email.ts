@@ -1,207 +1,65 @@
-import { authHeaderSchema } from '@/payload/auth';
+import { HttpStatus } from '@/controller/const';
+import { getAccessUserId } from '@/controller/utils';
+import type { Request, Response } from 'express';
+import type { ResponseSchema } from '@/payload/response';
 import {
   emailAddBodySchema,
   emailDeleteBodySchema,
   emailQuerySchema,
 } from '@/payload/email';
-import type { ResponseSchema } from '@/payload/response';
-import type { Request, Response } from 'express';
-import { HttpStatus } from '../const';
-import jwt from '@/jwt';
-import userQuery from '@/query/user';
-import emailRepo from '@/repository/email';
 import domainQuery from '@/query/domain';
 import emailQuery from '@/query/email';
-import { and, eq } from 'drizzle-orm';
+import emailRepo from '@/repository/email';
 import { emails } from '@/schema';
+import { and, eq } from 'drizzle-orm';
+import { HttpError } from '../errors';
+import { isReservedEmailAddress } from '@/utils/email';
 
-// @Router /api/v1/email POST
+/** 예약 이름과 서비스 도메인을 확인한 뒤 사용자 수신 주소를 등록합니다. */
 const addEmail = async (req: Request, res: Response<ResponseSchema>) => {
-  const bodyParse = emailAddBodySchema.safeParse(req.body);
-  const headerParse = authHeaderSchema.safeParse(req.headers);
-
-  if (headerParse.error) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  if (bodyParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'invalid input data',
-    });
-  }
-
-  const token = headerParse.data.authorization;
-  const accessClaims = jwt.verify(token);
-
-  if (!accessClaims || accessClaims.type != 'accessToken') {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  const { src } = bodyParse.data;
-  const user = await userQuery.id.execute({ id: accessClaims.claims.id });
-  const domain = await domainQuery.first.execute();
-
-  if (!domain) {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal server error',
-    });
-  }
-
-  if (!user) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  try {
-    const email = await emailRepo.create({
-      userId: user.id,
-      src,
-      domainId: domain.id,
-    });
-
-    if (!email) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        status: 'failed',
-        error: 'Internal server error',
-      });
-    }
-
-    return res.status(HttpStatus.CREATED).json({
-      status: 'ok',
-      data: {
-        src: email.src,
-      },
-    });
-  } catch {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal server error',
-    });
-  }
+  const { src } = emailAddBodySchema.parse(req.body);
+  const address = src.trim().toLowerCase();
+  if (isReservedEmailAddress(address))
+    throw new HttpError(HttpStatus.BAD_REQUEST, 'Reserved email address');
+  const [domain] = await domainQuery.name.execute({
+    name: address.split('@')[1],
+  });
+  if (!domain)
+    throw new HttpError(HttpStatus.BAD_REQUEST, 'Unsupported email domain');
+  const email = await emailRepo.create({
+    src: address,
+    userId: getAccessUserId(req),
+    domainId: domain.id,
+  });
+  if (!email) throw new HttpError(HttpStatus.CONFLICT, 'Email already exists');
+  res.status(HttpStatus.CREATED).json({ status: 'ok', data: email });
 };
-
-// @Router /api/v1/email?page={number} GET
 const getEmail = async (req: Request, res: Response<ResponseSchema>) => {
-  const headerParse = authHeaderSchema.safeParse(req.headers);
-  const queryParse = emailQuerySchema.safeParse(req.query);
-
-  if (headerParse.error) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  if (queryParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'invalid query data',
-    });
-  }
-
-  const token = headerParse.data.authorization;
-  const accessClaims = jwt.verify(token);
-  if (!accessClaims || accessClaims.type != 'accessToken') {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  const { page } = queryParse.data;
-  const limit = 10;
-  const offset = page ? (page - 1) * limit : 0;
-
-  const emails = await emailQuery.pagination.execute({
-    userId: accessClaims.claims.id,
-    offset,
-    limit,
+  const { page = 1 } = emailQuerySchema.parse(req.query);
+  const userId = getAccessUserId(req);
+  const rows = await emailQuery.pagination.execute({
+    userId,
+    offset: (page - 1) * 10,
+    limit: 10,
   });
-  const pages = await emailQuery.paginationCount.execute({
-    userId: accessClaims.claims.id,
-  });
-
-  const totalCount = pages[0]?.count ?? 0;
-
-  if (!emails) {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal server error',
-    });
-  }
-
-  return res.status(HttpStatus.OK).json({
+  const [total] = await emailQuery.paginationCount.execute({ userId });
+  res.status(HttpStatus.OK).json({
     status: 'ok',
     data: {
-      emails,
-      pages: Math.ceil(totalCount / limit),
-      total: totalCount,
-      now: page ?? 1,
+      emails: rows,
+      pages: Math.ceil((total?.count ?? 0) / 10),
+      total: total?.count ?? 0,
+      now: page,
     },
   });
 };
-
-// @Router /api/v1/email DELETE
 const deleteEmail = async (req: Request, res: Response<ResponseSchema>) => {
-  const headerParse = authHeaderSchema.safeParse(req.headers);
-  const bodyParse = emailDeleteBodySchema.safeParse(req.body);
-
-  if (headerParse.error) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  if (bodyParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'invalid input data',
-    });
-  }
-
-  const token = headerParse.data.authorization;
-  const accessClaims = jwt.verify(token);
-
-  if (!accessClaims || accessClaims.type != 'accessToken') {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  const { emailId } = bodyParse.data;
-  try {
-    const deleted = await emailRepo.remove(
-      and(eq(emails.userId, accessClaims.claims.id), eq(emails.id, emailId)),
-    );
-
-    if (!deleted || deleted.length === 0) {
-      return res.status(HttpStatus.NOT_FOUND).json({
-        status: 'failed',
-        error: 'failed to delete email',
-      });
-    }
-
-    return res.status(HttpStatus.OK).json({
-      status: 'ok',
-    });
-  } catch {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal server error',
-    });
-  }
+  const { emailId } = emailDeleteBodySchema.parse(req.body);
+  const deleted = await emailRepo.remove(
+    and(eq(emails.id, emailId), eq(emails.userId, getAccessUserId(req))),
+  );
+  if (!deleted.length)
+    throw new HttpError(HttpStatus.NOT_FOUND, 'Email not found');
+  res.status(HttpStatus.OK).json({ status: 'ok' });
 };
-
 export default { addEmail, getEmail, deleteEmail };

@@ -10,14 +10,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^17.4.2",
     "mailauth": "^5.0.3",
-    "postal-mime": "^3.0.0",
+    "mailparser": "^3.9.40",
+    "nodemailer": "^10.0.9",
+    "p-queue": "^10.0.0",
     "smtp-server": "^3.19.10"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.9.0",
     "@types/node": "^25.3.1",
+    "@types/nodemailer": "^8.0.2",
+    "@types/p-queue": "^3.2.1",
     "@types/smtp-server": "^3.5.13",
     "eslint": "^10.8.1",
+    "globals": "^17.11.0",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",

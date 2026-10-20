@@ -17,8 +17,8 @@ const forwardRegExpSchema = z.object({
 });
 
 const attachmentRuleSchema = z.object({
-  filename: z.union([regExpValueSchema, z.undefined()]),
-  ext: z.union([z.string(), z.undefined()]),
+  filename: regExpValueSchema.optional(),
+  ext: z.string().optional(),
 });
 
 const forwardAttachmentSchema = z.object({
@@ -26,19 +26,25 @@ const forwardAttachmentSchema = z.object({
   attachment: z.array(attachmentRuleSchema),
 });
 
-const dateRuleSchema = z.object({
-  startDate: z.union([z.coerce.date(), z.undefined()]),
-  endDate: z.union([z.coerce.date(), z.undefined()]),
-});
+const dateRuleSchema = z
+  .object({
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
+  })
+  .refine(
+    (value) =>
+      !value.startDate || !value.endDate || value.startDate <= value.endDate,
+    { message: 'startDate must precede endDate' },
+  );
 
 const postRuleSchema = z.object({
   newsletter: z.union([z.boolean(), z.literal('all')]),
-  subject: z.union([forwardRegExpSchema, z.undefined()]),
-  name: z.union([forwardRegExpSchema, z.undefined()]),
-  from: z.union([forwardRegExpSchema, z.undefined()]),
-  date: z.union([z.array(dateRuleSchema), z.undefined()]),
-  content: z.union([forwardRegExpSchema, z.undefined()]),
-  attachment: z.union([forwardAttachmentSchema, z.undefined()]),
+  subject: forwardRegExpSchema.optional(),
+  name: forwardRegExpSchema.optional(),
+  from: forwardRegExpSchema.optional(),
+  date: z.array(dateRuleSchema).optional(),
+  content: forwardRegExpSchema.optional(),
+  attachment: forwardAttachmentSchema.optional(),
 });
 
 const forwardPostRuleSchema = z.object({
@@ -49,26 +55,47 @@ const forwardPostRuleSchema = z.object({
 const forwardRuleSchema = z.array(forwardPostRuleSchema);
 
 const forwardAddBodySchema = z.object({
-  emailId: z.number({ error: 'email id 속성이 유효하지 않습니다.' }),
+  emailId: z
+    .number({ error: 'email id 속성이 유효하지 않습니다.' })
+    .int()
+    .positive(),
   rule: forwardRuleSchema,
-  dest: z.email({ error: '이메일 형태의 값이어야 합니다.' }),
+  dest: z.email({ error: '이메일 형태의 값이어야 합니다.' }).max(254),
 });
 
 const forwardDeleteBodySchema = z.object({
-  forwardId: z.number({ error: 'forward id 속성이 유효하지 않습니다.' }),
-  emailId: z.number({ error: 'email id 속성이 유효하지 않습니다.' }),
+  forwardId: z
+    .number({ error: 'forward id 속성이 유효하지 않습니다.' })
+    .int()
+    .positive(),
+  emailId: z
+    .number({ error: 'email id 속성이 유효하지 않습니다.' })
+    .int()
+    .positive(),
 });
 
-const forwardUpdateBodySchema = z.object({
-  forwardId: z.number({ error: 'forward id 속성이 유효하지 않습니다.' }),
-  emailId: z.number({ error: 'email id 속성이 유효하지 않습니다.' }),
-  rule: forwardRuleSchema.optional(),
-  dest: z.email({ error: '이메일 형태의 값이어야 합니다.' }).optional(),
-}).refine(({ rule, dest }) => rule !== undefined || dest !== undefined, {
-  error: '수정할 rule 또는 dest 속성이 필요합니다.',
-});
+const forwardUpdateBodySchema = z
+  .object({
+    forwardId: z
+      .number({ error: 'forward id 속성이 유효하지 않습니다.' })
+      .int()
+      .positive(),
+    emailId: z
+      .number({ error: 'email id 속성이 유효하지 않습니다.' })
+      .int()
+      .positive(),
+    rule: forwardRuleSchema.optional(),
+    dest: z
+      .email({ error: '이메일 형태의 값이어야 합니다.' })
+      .max(254)
+      .optional(),
+  })
+  .refine(({ rule, dest }) => rule !== undefined || dest !== undefined, {
+    error: '수정할 rule 또는 dest 속성이 필요합니다.',
+  });
 
 export {
+  forwardRuleSchema,
   forwardAddBodySchema,
   forwardDeleteBodySchema,
   forwardUpdateBodySchema,

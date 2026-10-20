@@ -8,7 +8,7 @@ const findSession = database.query.sessions
         eq: sql.placeholder('refreshHash'),
       },
       revoke: {
-        lt: sql.placeholder('revoke'),
+        eq: sql.placeholder('revoke'),
       },
     },
   })

@@ -1,0 +1,17 @@
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!apps/
+!apps/api/
+!apps/api/package.json
+!apps/smtp/
+!apps/smtp/package.json
+!apps/smtp/tsconfig.json
+!apps/smtp/src/
+!apps/smtp/src/**
+**/.env*
+**/*.key
+**/node_modules
+**/node_modules/**

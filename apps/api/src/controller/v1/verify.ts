@@ -1,381 +1,214 @@
-import { logger } from '@/logger';
-import {
-  providerCallbackSchema,
-  providerAuthBodySchema,
-  type ProviderCallbackInfer,
-  type ProviderUserInfoInfer,
-} from '@/payload/provider';
-import type { ResponseSchema } from '@/payload/response';
+import { HttpStatus } from '@/controller/const';
 import type { Request, Response } from 'express';
-import { HttpStatus, OAuth, ROUTE_V1_API } from '../const';
-import { google, naver } from '@/provider';
-import redisVerify from '@/redis/verify';
-import redisProvider from '@/redis/provider';
-import redisEmail from '@/redis/email';
-import jwt from '@/jwt';
-import userQuery from '@/query/user';
-import { createVerifyClaims } from '@/jwt/utils';
-import { issueCsrfTokens, issueRefreshToken } from '../utils';
-import config from '@/config';
+import type { ResponseSchema } from '@/payload/response';
 import { randomBytes, randomInt } from 'node:crypto';
+import {
+  type ProviderUserInfoInfer,
+  providerAuthBodySchema,
+  providerCallbackSchema,
+} from '@/payload/provider';
 import {
   codeBodySchema,
   emailBodySchema,
+  sessionCookieSchema,
   verifyHeaderSchema,
 } from '@/payload/auth';
+import { google, naver } from '@/provider';
+import { OAuth } from '../const';
+import config from '@/config';
+import redisProvider from '@/redis/provider';
+import redisVerify from '@/redis/verify';
+import { redis } from '@/redis';
+import { createVerifyClaims } from '@/jwt/utils';
+import jwt from '@/jwt';
+import { sha256 } from '@/utils/hash';
+import userQuery from '@/query/user';
 import { sendVerifyMail } from '@/mailer';
-import type { z } from 'zod';
-
-type EmailBodyInfer = z.infer<typeof emailBodySchema>;
-
-// @Router /api/v1/verify/provider POST
-const provider = async (req: Request, res: Response<ResponseSchema>) => {
-  const bodyParse = providerCallbackSchema.safeParse(req.body);
-  if (bodyParse.error) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/provider `,
-      bodyParse.error.cause,
-    );
-    return res.status(HttpStatus.BAD_REQUEST).json({ status: 'failed' });
-  }
-
-  const body = bodyParse.data;
-  if (body.error !== undefined) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/provider callback error`,
-      body.error,
-    );
-    return res
-      .status(HttpStatus.BAD_REQUEST)
-      .json({ status: 'failed', error: 'callback error' });
-  }
-
-  if (body.provider === 'naver') {
-    const rresult = await redisProvider.getdel(body.state);
-    if (!rresult) {
-      logger.error(
-        `${req.method} ${ROUTE_V1_API}/verify/provider state invalid error`,
-        body.error,
-      );
-      return res
-        .status(HttpStatus.BAD_REQUEST)
-        .json({ status: 'failed', error: 'state invalid error' });
-    }
-  }
-
-  const info = await userinfo(req.method, body);
-  if (!info) {
-    return res.status(HttpStatus.BAD_REQUEST).json({ status: 'failed' });
-  }
-
-  const providerId = info.provider === 'naver' ? info.response.id : info.sub;
-
-  const exists = await userQuery.providerId.execute({
-    providerId,
-    provider: info.provider,
-  });
-
-  if (exists) {
-    const csrfToken = issueCsrfTokens(res);
-    const accessToken = await issueRefreshToken(res, exists.id);
-    return res.status(HttpStatus.OK).json({
-      status: 'ok',
-      data: {
-        csrfToken,
-        accessToken,
-      },
-    });
-  }
-
-  const token = createVerifyClaims({
-    provider: info.provider,
-    providerId,
-    type: 'register',
-  });
-
-  const result = await redisVerify.set(token, {
-    login: 'oauth',
-    status: 'verified',
-    provider: info,
-  });
-
-  if (!result) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/provider redis save error`,
-      body.error,
-    );
-    return res
-      .status(HttpStatus.BAD_REQUEST)
-      .json({ status: 'failed', error: 'token save error' });
-  }
-
-  return res.status(HttpStatus.OK).json({
-    status: 'ok',
-    data: {
-      verifyToken: token,
-    },
-  });
-};
-
-// @Router /api/v1/verify/oauth [GET]
-const oauth = async (req: Request, res: Response<ResponseSchema>) => {
-  const providerParse = providerAuthBodySchema.safeParse(req.query);
-  if (providerParse.error) {
-    return res
-      .status(HttpStatus.BAD_REQUEST)
-      .json({ status: 'failed', error: 'invalid provider' });
-  }
-  const { provider } = providerParse.data;
-
+import { HttpError } from '../errors';
+import { issueCsrfTokens, issueRefreshToken } from '../utils';
+export const oauth = async (req: Request, res: Response<ResponseSchema>) => {
+  const { provider } = providerAuthBodySchema.parse(req.query);
+  const session = sessionCookieSchema.parse(req.cookies).sessionToken;
   const state = randomBytes(32).toString('hex');
+  if (
+    !(await redisProvider.set(state, {
+      provider,
+      createdAt: Date.now(),
+      session: sha256(session),
+    }))
+  )
+    throw new HttpError(HttpStatus.SERVICE_UNAVAILABLE, 'OAuth unavailable');
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.provider[provider].id,
     redirect_uri: config.provider[provider].redirectURI,
     state,
   });
-
-  if (provider === 'google') {
-    params.set('scope', 'openid');
-  }
-
-  const authorizationBase =
-    provider === 'naver'
-      ? OAuth.Authorization.NAVER
-      : OAuth.Authorization.GOOGLE;
-
-  if (provider === 'naver') {
-    const rresult = await redisProvider.set(state, {
-      provider: 'naver',
-      createdAt: Date.now(),
-    });
-    if (!rresult) {
-      logger.error('failed save naver provider state');
-    }
-  }
-
-  return res.status(HttpStatus.OK).json({
+  if (provider === 'google') params.set('scope', 'openid');
+  const base =
+    provider === 'google'
+      ? OAuth.Authorization.GOOGLE
+      : OAuth.Authorization.NAVER;
+  res.status(HttpStatus.OK).json({
     status: 'ok',
-    data: {
-      authorization: `${authorizationBase}?${params.toString()}`,
-    },
+    data: { authorization: base + '?' + params.toString() },
   });
 };
-
-// @Router /api/v1/verify/email [POST]
-const email = async (req: Request, res: Response<ResponseSchema>) => {
-  const bodyParse = emailBodySchema.safeParse(req.body);
-
-  if (bodyParse.error) {
-    return res
-      .status(HttpStatus.BAD_REQUEST)
-      .json({ status: 'failed', error: 'invalid email' });
-  }
-
-  const body = bodyParse.data;
-  const normalizeEmail = body.email.trim().toLowerCase();
-
-  const ttl = await redisEmail.ttl(normalizeEmail);
-  if (ttl === null) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/email redis query error`,
+export const provider = async (req: Request, res: Response<ResponseSchema>) => {
+  const body = providerCallbackSchema.parse(req.body);
+  if (body.error !== undefined)
+    throw new HttpError(
+      HttpStatus.BAD_REQUEST,
+      'OAuth provider rejected authorization',
     );
-    return res
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json({ status: 'failed', error: 'internal server error' });
+  const state = await redisProvider.getdel(body.state);
+  const session = sessionCookieSchema.parse(req.cookies).sessionToken;
+  if (
+    !state ||
+    state.provider !== body.provider ||
+    state.session !== sha256(session)
+  )
+    throw new HttpError(HttpStatus.BAD_REQUEST, 'Invalid OAuth state');
+  let providerId: string;
+  let info: ProviderUserInfoInfer;
+  if (body.provider === 'naver') {
+    const token = await naver.token(body.code, body.state);
+    const user = token
+      ? await naver.user(token.token_type, token.access_token)
+      : undefined;
+    if (!user)
+      throw new HttpError(HttpStatus.BAD_REQUEST, 'OAuth verification failed');
+    providerId = user.response.id;
+    info = { provider: 'naver', ...user };
+  } else {
+    const token = await google.token(body.code);
+    const user = token
+      ? await google.user(token.token_type, token.access_token)
+      : undefined;
+    if (!user)
+      throw new HttpError(HttpStatus.BAD_REQUEST, 'OAuth verification failed');
+    providerId = user.sub;
+    info = { provider: 'google', ...user };
   }
-
-  if (ttl > 0) {
-    return res.status(HttpStatus.OK).json({ status: 'ok', data: { ttl } });
-  }
-
-  const code = randomInt(0, 1000000).toString().padStart(6, '0');
-  const mailer = await sendVerifyMail(body.email.trim(), {
-    title: '[PAPERPLANE] ¿Ã∏ﬁ¿œ ¿Œ¡ı ∏ﬁ¿œ ¿‘¥œ¥Ÿ.',
-    verifyCode: code,
+  const exists = await userQuery.providerId.execute({
+    providerId,
+    provider: body.provider,
   });
-
-  if (!mailer) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/email email(${body.email.trim()}) send error`,
-    );
-
-    return res
-      .status(HttpStatus.CONFLICT)
-      .json({ status: 'failed', error: 'retry to send mail' });
+  if (exists) {
+    const accessToken = await issueRefreshToken(res, exists.id);
+    if (!accessToken)
+      throw new HttpError(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'Session creation failed',
+      );
+    res.status(HttpStatus.OK).json({
+      status: 'ok',
+      data: { accessToken, csrfToken: issueCsrfTokens(res) },
+    });
+    return;
   }
-
-  const token = await localVerifyClaims(body);
-  if (!token) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/email token invalid error`,
-    );
-    return res
-      .status(HttpStatus.BAD_REQUEST)
-      .json({ status: 'failed', error: 'bad request' });
-  }
-
-  const vresult = await redisVerify.set(token, {
-    login: 'local',
-    status: 'verify',
-    code,
+  const verifyToken = createVerifyClaims({
+    type: 'register',
+    provider: body.provider,
+    providerId,
   });
-
-  if (!vresult) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/email failed to save verify redis`,
+  if (
+    !(await redisVerify.set(verifyToken, {
+      login: 'oauth',
+      status: 'verified',
+      provider: info,
+    }))
+  )
+    throw new HttpError(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'Verification unavailable',
     );
-    return res
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json({ status: 'failed', error: 'internal server error' });
+  res
+    .status(HttpStatus.OK)
+    .json({ status: 'ok', data: { verifyToken, providerId } });
+};
+export const email = async (req: Request, res: Response<ResponseSchema>) => {
+  const body = emailBodySchema.parse(req.body);
+  const address = body.email.trim().toLowerCase();
+  let token: string;
+  if (body.type === 'register')
+    token = createVerifyClaims({
+      type: 'register',
+      provider: 'local',
+      email: address,
+    });
+  else {
+    const user = await userQuery.email.execute({ userEmail: address });
+    if (!user || user.provider !== 'local')
+      throw new HttpError(
+        HttpStatus.BAD_REQUEST,
+        'Invalid verification request',
+      );
+    token = createVerifyClaims({
+      type: 'password',
+      id: user.id,
+      email: address,
+    });
   }
-
-  const tresult = await redisEmail.set(normalizeEmail);
-  if (!tresult) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/email failed to save email redis`,
+  const cooldown = 'email:' + address;
+  if ((await redis.set(cooldown, '1', 'EX', 30, 'NX')) !== 'OK') {
+    res.setHeader('Retry-After', Math.max(0, await redis.ttl(cooldown)));
+    res.status(HttpStatus.TOO_MANY_REQUESTS).json({
+      status: 'failed',
+      error: 'Wait before requesting another email',
+    });
+    return;
+  }
+  const code = randomInt(1000000).toString().padStart(6, '0');
+  if (
+    !(await sendVerifyMail(address, {
+      title: '[Paperplane] Ïù¥Î©îÏùº Ïù∏Ï¶ù',
+      verifyCode: code,
+    }))
+  ) {
+    await redis.del(cooldown);
+    throw new HttpError(HttpStatus.BAD_GATEWAY, 'Email delivery failed');
+  }
+  if (
+    !(await redisVerify.set(token, { login: 'local', status: 'verify', code }))
+  )
+    throw new HttpError(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'Verification unavailable',
     );
-    return res
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json({ status: 'failed', error: 'internal server error' });
-  }
-
-  return res
+  res
     .status(HttpStatus.CREATED)
     .json({ status: 'ok', data: { verifyToken: token } });
 };
-
-// @Router /api/v1/verify/code [POST]
-const codeVerify = async (req: Request, res: Response<ResponseSchema>) => {
-  try {
-    const headerParse = verifyHeaderSchema.safeParse(req.headers);
-    if (headerParse.error) {
-      throw headerParse.error;
-    }
-    const bodyParse = codeBodySchema.safeParse(req.body);
-    if (bodyParse.error) {
-      throw bodyParse.error;
-    }
-    const token = headerParse.data['x-paperplane-verify'];
-    const body = bodyParse.data;
-
-    const verifyClaims = jwt.verify(token);
-
-    if (!verifyClaims || verifyClaims.type != 'verifyToken') {
-      throw new Error('verify token error');
-    }
-
-    const rval = await redisVerify.get(token);
-    if (
-      !rval ||
-      rval.login !== 'local' ||
-      rval.code.trim() !== body.code.trim()
-    ) {
-      throw new Error('verify token error');
-    }
-
-    const vresult = await redisVerify.set(token, {
-      code: rval.code,
-      login: 'local',
-      status: 'verified',
-    });
-
-    if (!vresult) {
-      throw new Error('failed to save redis verified token');
-    }
-
-    return res.status(HttpStatus.OK).json({ status: 'ok' });
-  } catch (e) {
-    logger.error(
-      `${req.method} ${ROUTE_V1_API}/verify/code failed verify code`,
-      e,
+export const codeVerify = async (
+  req: Request,
+  res: Response<ResponseSchema>,
+) => {
+  const token = verifyHeaderSchema.parse(req.headers)['x-paperplane-verify'];
+  const { code } = codeBodySchema.parse(req.body);
+  const claims = jwt.verify(token);
+  if (claims?.type !== 'verifyToken')
+    throw new HttpError(HttpStatus.BAD_REQUEST, 'Invalid verification');
+  const attemptsKey = 'verify-attempts:' + sha256(token);
+  const attempts = Number(
+    await redis.eval(
+      "local n = redis.call('INCR', KEYS[1]); if n == 1 then redis.call('EXPIRE', KEYS[1], 1800) end; return n",
+      1,
+      attemptsKey,
+    ),
+  );
+  if (attempts > 5)
+    throw new HttpError(
+      HttpStatus.TOO_MANY_REQUESTS,
+      'Too many verification attempts',
     );
-    return res
-      .status(HttpStatus.BAD_REQUEST)
-      .json({ status: 'failed', error: 'invalid code error' });
-  }
-};
-
-const userinfo = async (
-  method: string,
-  body: ProviderCallbackInfer,
-): Promise<ProviderUserInfoInfer | undefined> => {
-  if (body.error !== undefined) {
-    logger.error(
-      `${method} ${ROUTE_V1_API}/verify/provider callback error`,
-      body.error,
+  const verified = await redisVerify.get(token);
+  if (!verified || verified.login !== 'local' || verified.code !== code)
+    throw new HttpError(HttpStatus.BAD_REQUEST, 'Invalid verification code');
+  if (!(await redisVerify.set(token, { ...verified, status: 'verified' })))
+    throw new HttpError(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'Verification unavailable',
     );
-    return undefined;
-  }
-  if (body.provider === 'naver') {
-    const token = await naver.token(body.code, body.state);
-    if (!token) {
-      logger.error(
-        `${method} ${ROUTE_V1_API}/verify/provider naver token is undefined`,
-        body.error,
-      );
-      return undefined;
-    }
-    const info = await naver.user(token.token_type, token.access_token);
-    if (!info) {
-      logger.error(
-        `${method} ${ROUTE_V1_API}/verify/provider naver userinfo is undefined`,
-        body.error,
-      );
-      return undefined;
-    }
-    return {
-      provider: 'naver',
-      ...info,
-    };
-  } else {
-    const token = await google.token(body.code);
-    if (!token) {
-      logger.error(
-        `${method} ${ROUTE_V1_API}/verify/provider google token is undefined`,
-        body.error,
-      );
-      return undefined;
-    }
-    const info = await google.user(token.token_type, token.access_token);
-    if (!info) {
-      logger.error(
-        `${method} ${ROUTE_V1_API}/verify/provider google userinfo is undefined`,
-        body.error,
-      );
-      return undefined;
-    }
-    return {
-      provider: 'google',
-      ...info,
-    };
-  }
+  res.status(HttpStatus.OK).json({ status: 'ok' });
 };
-
-const localVerifyClaims = async (
-  body: EmailBodyInfer,
-): Promise<string | undefined> => {
-  if (body.type === 'register') {
-    return createVerifyClaims({
-      type: 'register',
-      provider: 'local',
-      email: body.email.trim(),
-    });
-  }
-
-  const exists = await userQuery.email.execute({
-    userEmail: body.email.trim().toLowerCase(),
-  });
-
-  if (!exists) {
-    return undefined;
-  }
-
-  return createVerifyClaims({
-    type: 'password',
-    email: body.email.trim(),
-    id: exists.id,
-  });
-};
-
-export { provider, oauth, codeVerify, email };

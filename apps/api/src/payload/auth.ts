@@ -3,9 +3,7 @@ import { z } from 'zod';
 const provider = z.enum(['local', 'google', 'naver'], {
   error: '비정상적인 제공자입니다.',
 });
-const email = z.email({
-  error: '이메일을 입력해야 합니다.',
-});
+const email = z.email({ error: '이메일을 입력해야 합니다.' }).max(254);
 const password = z
   .string({
     error: '비밀번호를 입력해야 합니다.',
@@ -28,7 +26,7 @@ const emailBodySchema = z.object({
 });
 
 const codeBodySchema = z.object({
-  code: z.string().min(6).max(6),
+  code: z.string().regex(/^\d{6}$/),
 });
 
 const loginBodySchema = z.object({
@@ -94,7 +92,8 @@ const sessionCookieSchema = z.object({
 const authHeaderSchema = z.object({
   authorization: z
     .string({ error: 'Authorization 토큰이 존재하지 않습니다.' })
-    .startsWith('Bearer ', { error: 'Bearer 토큰이 이어야 합니다.' }),
+    .regex(/^Bearer [^\s]+$/, { error: 'Bearer token required' })
+    .transform((value) => value.slice(7)),
 });
 
 export {

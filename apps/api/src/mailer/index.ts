@@ -13,10 +13,12 @@ const transporter = nodemailer.createTransport({
   host: config.mailer.host,
   port: config.mailer.port,
   secure: config.mailer.secure,
-  auth: {
-    user: config.mailer.auth.user,
-    pass: config.mailer.auth.password,
-  },
+  auth: config.mailer.auth.user
+    ? {
+        user: config.mailer.auth.user,
+        pass: config.mailer.auth.password,
+      }
+    : undefined,
 });
 
 const src = await readFile(new URL('./template.html', import.meta.url), 'utf8');
@@ -25,7 +27,7 @@ const tmpl = Handlebars.compile(src);
 export const sendVerifyMail = async (
   to: string,
   template: MailTemplate,
-): Promise<string | false> => {
+): Promise<boolean> => {
   const html = tmpl({
     verifyCode: template.verifyCode,
   });
@@ -37,7 +39,7 @@ export const sendVerifyMail = async (
       html,
     });
 
-    return nodemailer.getTestMessageUrl(message);
+    return message.accepted.length > 0;
   } catch (e) {
     logger.error(e);
     return false;

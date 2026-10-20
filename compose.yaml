@@ -1,0 +1,237 @@
+name: paperplane
+
+# 장시간 실행하는 서비스의 공통 재시작/로그 정책입니다.
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
+
+services:
+  postgres:
+    <<: *service
+    build: ./apps/database
+    image: paperplane/database:local
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: paperplane
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?루트 .env에 관리 비밀번호를 입력하세요}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?API 비밀번호가 필요합니다}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?마이그레이션 비밀번호가 필요합니다}
+      POSTFIX_DB_PASSWORD: ${POSTFIX_DB_PASSWORD:?Postfix 비밀번호가 필요합니다}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [database]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d paperplane']
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+    stop_grace_period: 60s
+
+  # 빈 DB에는 테이블을 생성하고 이후에는 미적용 마이그레이션만 적용합니다.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    image: paperplane/migrate:local
+    environment:
+      DB_URL: postgresql://paperplane_migrator:${MIGRATOR_DB_PASSWORD}@postgres:5432/paperplane
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [database]
+    restart: 'no'
+
+  # 마이그레이션 완료 후 Postfix에 필요한 두 컬럼 조회 권한만 적용합니다.
+  postfix-grants:
+    build: ./apps/database
+    image: paperplane/database:local
+    entrypoint: [psql]
+    command: ['-h', postgres, '-U', postgres, '-d', paperplane, '-f', /opt/paperplane/grant-postfix.sql]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    networks: [database]
+    restart: 'no'
+
+  redis:
+    <<: *service
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis-data:/data
+    # API만 접속하는 전용 내부 네트워크입니다. 호스트에는 포트를 공개하지 않습니다.
+    networks: [cache]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *service
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    image: paperplane/api:local
+    init: true
+    environment:
+      # 로컬 HTTP용 기본값. HTTPS 운영 환경에서는 production으로 변경합니다.
+      NODE_ENV: ${NODE_ENV:-development}
+      LISTEN_PORT: '8080'
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8088}
+      DB_URL: postgresql://paperplane_api:${API_DB_PASSWORD}@postgres:5432/paperplane
+      REDIS_ADDR: redis
+      REDIS_PORT: '6379'
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public
+      HMAC_KEY_PATH: /run/secrets/hmac
+      # 인증 메일은 Postfix 전용 포트에서 DKIM 서명 후 외부 MX로 보냅니다.
+      MAILER_FROM: ${MAILER_FROM:-noreply@paperplane.life}
+      MAILER_HOST: postfix
+      MAILER_PORT: '10027'
+      MAILER_SECURE: 'false'
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-http://localhost:8088/oauth/google/callback}
+      OAUTH_NAVER_CLIENT_ID: ${OAUTH_NAVER_CLIENT_ID:-}
+      OAUTH_NAVER_CLIENT_SECRET: ${OAUTH_NAVER_CLIENT_SECRET:-}
+      OAUTH_NAVER_REDIRECT_URI: ${OAUTH_NAVER_REDIRECT_URI:-http://localhost:8088/oauth/naver/callback}
+    secrets: [jwt_private, jwt_public, hmac]
+    # 외부 클라이언트도 API에 직접 접속할 수 있도록 모든 IPv4 인터페이스에 공개합니다.
+    ports:
+      - '0.0.0.0:8080:8080'
+    networks: [frontend, database, cache, mail]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    stop_grace_period: 15s
+
+  smtp:
+    <<: *service
+    build:
+      context: .
+      dockerfile: apps/smtp/Dockerfile
+    image: paperplane/smtp:local
+    init: true
+    environment:
+      NODE_ENV: production
+      LISTEN_PORT: '10025'
+      POSTFIX: postfix
+      POSTFIX_PORT: '10025'
+      REQUEST_ROUTE: http://api:8080/api/v1/router
+      REQUEST_RECORD: http://api:8080/api/v1/internal/deliveries
+      HMAC_KEY_PATH: /run/secrets/hmac
+    secrets: [hmac]
+    networks: [mail]
+    depends_on:
+      api: {condition: service_healthy}
+    stop_grace_period: 30s
+
+  opendkim:
+    <<: *service
+    build:
+      context: ./apps/postfix
+      dockerfile: Dockerfile.opendkim
+    image: paperplane/opendkim:local
+    volumes:
+      - type: bind
+        source: ./apps/postfix/dkim/mail202610.private
+        target: /run/secrets/dkim.private
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /run/opendkim
+    networks: [signing]
+    healthcheck:
+      test: [CMD, nc, -z, -w, '2', 127.0.0.1, '8891']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postfix:
+    <<: *service
+    build: ./apps/postfix
+    image: paperplane/postfix:local
+    hostname: ${POSTFIX_HOSTNAME:-mail.paperplane.example}
+    environment:
+      POSTFIX_HOSTNAME: ${POSTFIX_HOSTNAME:-mail.paperplane.example}
+      POSTFIX_DB_HOST: postgres
+      POSTFIX_DB_PORT: '5432'
+      POSTFIX_DB_NAME: paperplane
+      POSTFIX_DB_USER: paperplane_postfix
+      POSTFIX_DB_PASSWORD: ${POSTFIX_DB_PASSWORD}
+      # API와 SMTP만 메일 재주입을 요청할 수 있는 별도 네트워크입니다.
+      POSTFIX_TRUSTED_NETWORKS: 127.0.0.0/8,${MAIL_NETWORK_SUBNET:-172.30.26.0/24}
+      FILTER_SMTP_HOST: smtp
+      FILTER_SMTP_PORT: '10025'
+      POSTFIX_MESSAGE_SIZE_LIMIT: '26214400'
+    ports:
+      - '${SMTP_BIND_ADDRESS:-127.0.0.1}:${SMTP_PUBLIC_PORT:-2525}:25'
+    volumes:
+      - postfix-queue:/var/spool/postfix
+      - postfix-data:/var/lib/postfix
+      - ./apps/postfix/certs:/etc/postfix/tls:ro
+    networks: [database, mail, signing]
+    depends_on:
+      postfix-grants: {condition: service_completed_successfully}
+      smtp: {condition: service_healthy}
+      opendkim: {condition: service_healthy}
+    healthcheck:
+      test: ['CMD-SHELL', 'postfix status && nc -z -w 2 127.0.0.1 25 && nc -z -w 2 127.0.0.1 10025 && nc -z -w 2 127.0.0.1 10027']
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+    stop_grace_period: 30s
+
+  web:
+    <<: *service
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: paperplane/web:local
+    ports:
+      - '0.0.0.0:${WEB_PORT:-8088}:80'
+    networks: [frontend]
+    depends_on:
+      api: {condition: service_healthy}
+      postfix: {condition: service_healthy}
+
+# 키는 이미지에 넣지 않고 API/SMTP에 같은 HMAC 파일을 전달합니다.
+secrets:
+  jwt_private:
+    file: ${JWT_PRIVATE_KEY_FILE:-./apps/api/private.key}
+  jwt_public:
+    file: ${JWT_PUBLIC_KEY_FILE:-./apps/api/public.key}
+  hmac:
+    file: ${HMAC_KEY_FILE:-./apps/api/hmac.key}
+
+networks:
+  signing:
+    internal: true
+  frontend:
+  database:
+    internal: true
+  cache:
+    internal: true
+  mail:
+    ipam:
+      config:
+        - subnet: ${MAIL_NETWORK_SUBNET:-172.30.26.0/24}
+
+# 프로젝트별 Compose의 기존 볼륨과 분리됩니다. 기존 DB를 자동 이전하지 않습니다.
+volumes:
+  postgres-data:
+  redis-data:
+  postfix-queue:
+  postfix-data:

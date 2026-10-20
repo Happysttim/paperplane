@@ -5,98 +5,84 @@ import {
   createSessionClaims,
 } from '@/jwt/utils';
 import jwt from '@/jwt';
-import { REFRESH_TOKEN, SESSION_TOKEN } from '@/jwt/const';
 import { generateHmac, sha256 } from '@/utils/hash';
-import { RANDOM_HMAC_SEED } from '@/utils/const';
-import type { ResponseSchema } from '@/payload/response';
-import type { Response } from 'express';
-import sessionQuery from '@/query/session';
-import sessionRepo from '@/repository/session';
-import { eq } from 'drizzle-orm';
+import type { CookieOptions, Request, Response } from 'express';
+import { authHeaderSchema } from '@/payload/auth';
+import { HttpStatus } from './const';
+import { HttpError } from './errors';
+import database from '@/database';
+import { and, eq, gt } from 'drizzle-orm';
 import { sessions } from '@/schema';
-
-const tokenExpires = (key: TokenType): Date => {
-  const now = new Date();
-  switch (key) {
-    case 'sessionToken':
-      return new Date(now.setDate(now.getDate() + 7));
-    case 'accessToken':
-      return new Date(now.setMinutes(now.getMinutes() + 15));
-    case 'refreshToken':
-      return new Date(now.setDate(now.getDate() + 1));
-    case 'verifyToken':
-      return new Date(now.setHours(now.getHours() + 12));
-  }
+import config from '@/config';
+export const cookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: config.production,
+  sameSite: 'lax',
+  path: '/',
 };
-
-const injectCookie = (res: Response, key: TokenType, value: string) => {
-  const expires = tokenExpires(key);
-
+export const injectCookie = (res: Response, key: TokenType, value: string) => {
   res.cookie(key, value, {
-    httpOnly: true,
-    secure: true,
-    expires,
+    ...cookieOptions,
+    maxAge: key === 'sessionToken' ? 7 * 86400000 : 86400000,
   });
 };
-
-const issueCsrfTokens = (res: Response<ResponseSchema>): string => {
-  const sessionToken = createSessionClaims();
-  const csrfToken = generateHmac(sessionToken, RANDOM_HMAC_SEED);
-
-  injectCookie(res, SESSION_TOKEN, sessionToken);
-
-  return csrfToken;
+export const clearAuthCookies = (res: Response) => {
+  for (const key of ['sessionToken', 'refreshToken'])
+    res.clearCookie(key, cookieOptions);
 };
-
-const issueRefreshToken = async (
-  res: Response<ResponseSchema>,
+export const issueCsrfTokens = (res: Response): string => {
+  const sessionToken = createSessionClaims();
+  injectCookie(res, 'sessionToken', sessionToken);
+  return generateHmac(sessionToken);
+};
+export const issueRefreshToken = async (
+  res: Response,
   userId: number,
   before?: string,
 ): Promise<string | undefined> => {
-  try {
+  const refreshToken = createRefreshClaims(userId);
+  const created = await database.transaction(async (tx) => {
     if (before) {
-      const refreshClaims = jwt.verify(before);
-      if (!refreshClaims || refreshClaims.type != 'refreshToken') {
+      const claims = jwt.verify(before);
+      if (claims?.type !== 'refreshToken' || claims.claims.id !== userId)
         return undefined;
-      }
-
-      const refreshHash = sha256(before);
-      const session = await sessionQuery.findSession.execute({
-        refreshHash,
-        revoke: false,
-      });
-
-      if (session) {
-        session.revoke = true;
-        const updated = await sessionRepo.update(
-          session,
-          eq(sessions.id, session.id),
-        );
-        if (updated.length === 0) {
-          return undefined;
-        }
-      }
+      const revoked = await tx
+        .update(sessions)
+        .set({ revoke: true })
+        .where(
+          and(
+            eq(sessions.refreshHash, sha256(before)),
+            eq(sessions.userId, userId),
+            eq(sessions.revoke, false),
+            gt(sessions.expiresAt, new Date()),
+          ),
+        )
+        .returning();
+      if (revoked.length !== 1) return undefined;
     }
-
-    const accessToken = createAccessClaims(userId);
-    const refreshToken = createRefreshClaims(userId);
-
-    const refreshHash = sha256(refreshToken);
-    const created = await sessionRepo.create({
-      refreshHash,
-      expiresAt: tokenExpires(REFRESH_TOKEN),
-    });
-
-    if (!created) {
-      return undefined;
-    }
-
-    injectCookie(res, REFRESH_TOKEN, refreshToken);
-
-    return accessToken;
-  } catch {
-    return undefined;
-  }
+    const [session] = await tx
+      .insert(sessions)
+      .values({
+        userId,
+        refreshHash: sha256(refreshToken),
+        expiresAt: new Date(Date.now() + 86400000),
+      })
+      .returning();
+    return session;
+  });
+  if (!created) return undefined;
+  injectCookie(res, 'refreshToken', refreshToken);
+  return createAccessClaims(userId);
 };
 
-export { injectCookie, issueCsrfTokens, issueRefreshToken };
+// Controllers obtain the user identity; authorization only gates the request.
+export const getAccessUserId = (req: Request): number => {
+  const header = authHeaderSchema.safeParse(req.headers);
+  const token = header.success
+    ? jwt.verify(header.data.authorization)
+    : undefined;
+  if (token?.type !== 'accessToken') {
+    throw new HttpError(HttpStatus.UNAUTHORIZED, 'Unauthorized');
+  }
+  return token.claims.id;
+};

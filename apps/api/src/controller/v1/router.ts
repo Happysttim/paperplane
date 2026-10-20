@@ -1,78 +1,37 @@
-import type { ResponseSchema } from '@/payload/response';
-import { routeEmailBodySchema, routeHeaderSchema } from '@/payload/route';
+import { HttpStatus } from '@/controller/const';
 import type { Request, Response } from 'express';
-import { HttpStatus } from '../const';
-import { compareHmac } from '@/utils/hash';
-import type { PostRecord } from '@/schema/rules';
-import { matchForwardRule } from '@/schema/rules';
+import type { ResponseSchema } from '@/payload/response';
+import { routeEmailBodySchema } from '@/payload/route';
+import type { z } from 'zod';
+import { matchForwardRule, type PostRecord } from '@/schema/rules';
 import emailQuery from '@/query/email';
-import { inArray } from 'drizzle-orm';
-import { emails } from '@/schema';
-
-const isNewsletter = (headers: { key: string; value: string }[]) =>
-  headers.some(({ key, value }) => {
-    const normalizedKey = key.toLowerCase();
-    return (
-      normalizedKey === 'list-unsubscribe' ||
-      normalizedKey === 'list-id' ||
-      (normalizedKey === 'precedence' && /^(bulk|list)$/i.test(value.trim()))
-    );
-  });
-
-// @Router /api/v1/router GET
+export const toPostRecord = (
+  mail: z.infer<typeof routeEmailBodySchema>,
+): PostRecord => ({
+  attachment: mail.attachments.map((item) => item.filename),
+  content: mail.content,
+  date: mail.date,
+  from: mail.from.address,
+  name: mail.from.name,
+  subject: mail.subject,
+  newsletter: mail.headers.some(
+    ({ key, value }) =>
+      ['list-unsubscribe', 'list-id'].includes(key.toLowerCase()) ||
+      (key.toLowerCase() === 'precedence' &&
+        /^(bulk|list)$/i.test(value.trim())),
+  ),
+});
 const mailRouter = async (req: Request, res: Response<ResponseSchema>) => {
-  const headerParse = routeHeaderSchema.safeParse(req.headers);
-  const bodyParse = routeEmailBodySchema.safeParse(req.body);
-
-  if (headerParse.error || bodyParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'Bad request',
-    });
-  }
-
-  const timestamp = headerParse.data['x-paperplane-timestamp'];
-  const requestId = headerParse.data['x-request-id'];
-  const signature = headerParse.data['x-paperplane-signature'];
-
-  const plain = `${requestId}.${timestamp}`;
-
-  if (!compareHmac(plain, signature)) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'Bad request',
-    });
-  }
-
-  const { attachments, content, date, from, subject, envelope, headers } =
-    bodyParse.data;
-  const postRecord: PostRecord = {
-    attachment: attachments.map((value) => value.filename),
-    content,
-    date,
-    from: from.address,
-    subject,
-    name: from.name,
-    newsletter: isNewsletter(headers),
-  };
-
-  const query = await emailQuery.source.execute({
-    srcs: inArray(emails.src, envelope.recipients),
+  const mail = routeEmailBodySchema.parse(req.body);
+  const record = toPostRecord(mail);
+  const rows = await emailQuery.routes.execute({
+    sources: mail.envelope.recipients.map((value) => value.toLowerCase()),
   });
-
-  const nextForwards = query.map((email) => {
-    return {
-      [email.src]: email.forwards.map((forward) => ({
-        [forward.dest]:
-          forward.rule === null || matchForwardRule(postRecord, forward.rule),
-      })),
-    };
-  });
-
-  return res.status(HttpStatus.OK).json({
-    status: 'ok',
-    data: nextForwards,
-  });
+  const data = rows.map((row) => ({
+    source: row.src,
+    destination: row.dest,
+    matches: row.rule === null || matchForwardRule(record, row.rule),
+  }));
+  res.status(HttpStatus.OK).json({ status: 'ok', data });
 };
-
 export default { mailRouter };

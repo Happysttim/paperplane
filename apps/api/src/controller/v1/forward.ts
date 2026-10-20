@@ -1,215 +1,97 @@
-import { authHeaderSchema } from '@/payload/auth';
+import domainQuery from '@/query/domain';
+import destinationQuery from '@/query/destination';
+import emailQuery from '@/query/email';
+import { HttpStatus } from '@/controller/const';
+import { getAccessUserId } from '@/controller/utils';
+import type { Request, Response } from 'express';
+import type { ResponseSchema } from '@/payload/response';
 import {
   forwardAddBodySchema,
   forwardDeleteBodySchema,
   forwardUpdateBodySchema,
+  forwardRuleSchema,
 } from '@/payload/forward';
-import type { ResponseSchema } from '@/payload/response';
-import type { Request, Response } from 'express';
-import { HttpStatus } from '../const';
-import jwt from '@/jwt';
-import domainQuery from '@/query/domain';
-import forwardQuery from '@/query/forward';
-import forwardRepo from '@/repository/forward';
-import { eq } from 'drizzle-orm';
+import { routeEmailBodySchema } from '@/payload/route';
+import database from '@/database';
 import { forwards } from '@/schema';
-
-// @Router /api/v1/forward POST
-const postRule = async (req: Request, res: Response<ResponseSchema>) => {
-  const headerParse = authHeaderSchema.safeParse(req.headers);
-  const bodyParse = forwardAddBodySchema.safeParse(req.body);
-
-  if (headerParse.error) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  if (bodyParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'Bad Request',
-    });
-  }
-
-  const { authorization } = headerParse.data;
-  const { emailId, rule, dest } = bodyParse.data;
-
-  const accessClaims = jwt.verify(authorization);
-
-  if (!accessClaims || accessClaims.type !== 'accessToken') {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  const domain = await domainQuery.first.execute();
-
-  if (!domain) {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal Server Error',
-    });
-  }
-
-  if (dest.trim().includes(domain.name)) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'Bad destination email address',
-    });
-  }
-
-  try {
-    const forward = await forwardRepo.create({ emailId, rule, dest });
-    if (!forward) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        status: 'failed',
-        error: 'Internal Server Error',
-      });
-    }
-    res.status(HttpStatus.CREATED).json({
-      status: 'ok',
-      data: forward,
-    });
-  } catch {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal Server Error',
-    });
-  }
-};
-
-// @Router /api/v1/forward UPDATE
-const updateRule = async (req: Request, res: Response<ResponseSchema>) => {
-  const headerParse = authHeaderSchema.safeParse(req.headers);
-  const bodyParse = forwardUpdateBodySchema.safeParse(req.body);
-
-  if (headerParse.error) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  if (bodyParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'Bad Request',
-    });
-  }
-
-  const { authorization } = headerParse.data;
-  const { forwardId, rule, dest, emailId } = bodyParse.data;
-
-  const accessClaims = jwt.verify(authorization);
-  if (!accessClaims || accessClaims.type !== 'accessToken') {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  const forward = await forwardQuery.hasForward.execute({
-    id: accessClaims.claims.id,
-    emailId,
-    forwardId,
-  });
-
-  if (!forward) {
-    return res.status(HttpStatus.NOT_FOUND).json({
-      status: 'failed',
-      error: 'Not Found',
-    });
-  }
-
-  try {
-    const [updated] = await forwardRepo.update(
-      { rule, dest },
-      eq(forwards.id, forward.id),
+import { and, eq } from 'drizzle-orm';
+import { HttpError } from '../errors';
+import { matchForwardRule } from '@/schema/rules';
+import { toPostRecord } from './router';
+import { z } from 'zod';
+export const validateDestination = async (address: string, userId: number) => {
+  const domain = address.split('@')[1]!;
+  const local = await domainQuery.name.execute({ name: domain });
+  if (local.length)
+    throw new HttpError(
+      HttpStatus.BAD_REQUEST,
+      'Forwarding to a service domain is not allowed',
     );
-
-    if (!updated) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        status: 'failed',
-        error: 'Internal Server Error',
-      });
-    }
-
-    return res.status(HttpStatus.OK).json({
-      status: 'ok',
-      data: updated,
-    });
-  } catch {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal Server Error',
-    });
-  }
+  const verified = await destinationQuery.verified.execute({ address, userId });
+  if (!verified.length)
+    throw new HttpError(
+      HttpStatus.BAD_REQUEST,
+      'Destination verification required',
+    );
 };
-
-// @Router /api/v1/forwards DELETE
-const deleteForwards = async (req: Request, res: Response<ResponseSchema>) => {
-  const headerParse = authHeaderSchema.safeParse(req.headers);
-  const bodyParse = forwardDeleteBodySchema.safeParse(req.body);
-
-  if (headerParse.error) {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  if (bodyParse.error) {
-    return res.status(HttpStatus.BAD_REQUEST).json({
-      status: 'failed',
-      error: 'Bad Request',
-    });
-  }
-
-  const { authorization } = headerParse.data;
-  const { forwardId, emailId } = bodyParse.data;
-
-  const accessClaims = jwt.verify(authorization);
-  if (!accessClaims || accessClaims.type !== 'accessToken') {
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      status: 'failed',
-      error: 'Unauthorized',
-    });
-  }
-
-  const forward = await forwardQuery.hasForward.execute({
-    id: accessClaims.claims.id,
-    emailId,
-    forwardId,
+const ownedEmail = async (emailId: number, userId: number) => {
+  const email = await emailQuery.forwardsWithId.execute({
+    id: emailId,
+    userId,
   });
-
-  if (!forward) {
-    return res.status(HttpStatus.NOT_FOUND).json({
-      status: 'failed',
-      error: 'Not Found',
-    });
-  }
-
-  try {
-    const [deleted] = await forwardRepo.remove(eq(forwards.id, forward.id));
-    if (!deleted) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        status: 'failed',
-        error: 'Internal Server Error',
-      });
-    }
-
-    return res.status(HttpStatus.OK).json({
-      status: 'ok',
-    });
-  } catch {
-    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      status: 'failed',
-      error: 'Internal Server Error',
-    });
-  }
+  if (!email) throw new HttpError(HttpStatus.NOT_FOUND, 'Email not found');
 };
-
-export default { postRule, updateRule, deleteForwards };
+const postRule = async (req: Request, res: Response<ResponseSchema>) => {
+  const { emailId, rule, dest } = forwardAddBodySchema.parse(req.body);
+  const userId = getAccessUserId(req);
+  await ownedEmail(emailId, userId);
+  const address = dest.trim().toLowerCase();
+  await validateDestination(address, userId);
+  const [forward] = await database
+    .insert(forwards)
+    .values({ emailId, rule, dest: address })
+    .returning();
+  res.status(HttpStatus.CREATED).json({ status: 'ok', data: forward });
+};
+const updateRule = async (req: Request, res: Response<ResponseSchema>) => {
+  const { emailId, forwardId, rule, dest } = forwardUpdateBodySchema.parse(
+    req.body,
+  );
+  const userId = getAccessUserId(req);
+  await ownedEmail(emailId, userId);
+  const address = dest?.trim().toLowerCase();
+  if (address) await validateDestination(address, userId);
+  const [forward] = await database
+    .update(forwards)
+    .set({ rule, dest: address, updated_at: new Date() })
+    .where(and(eq(forwards.id, forwardId), eq(forwards.emailId, emailId)))
+    .returning();
+  if (!forward) throw new HttpError(HttpStatus.NOT_FOUND, 'Forward not found');
+  res.status(HttpStatus.OK).json({ status: 'ok', data: forward });
+};
+const deleteForwards = async (req: Request, res: Response<ResponseSchema>) => {
+  const { emailId, forwardId } = forwardDeleteBodySchema.parse(req.body);
+  await ownedEmail(emailId, getAccessUserId(req));
+  const removed = await database
+    .delete(forwards)
+    .where(and(eq(forwards.id, forwardId), eq(forwards.emailId, emailId)))
+    .returning();
+  if (!removed.length)
+    throw new HttpError(HttpStatus.NOT_FOUND, 'Forward not found');
+  res.status(HttpStatus.OK).json({ status: 'ok' });
+};
+const testRule = (req: Request, res: Response<ResponseSchema>) => {
+  const { rule, mail } = z
+    .object({ rule: forwardRuleSchema, mail: routeEmailBodySchema })
+    .parse(req.body);
+  const record = toPostRecord(mail);
+  res.status(HttpStatus.OK).json({
+    status: 'ok',
+    data: {
+      matches: matchForwardRule(record, rule),
+      groups: rule.map((group) => matchForwardRule(record, [group])),
+      record,
+    },
+  });
+};
+export default { postRule, updateRule, deleteForwards, testRule };

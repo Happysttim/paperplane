@@ -10,13 +10,13 @@ export type ForwardRegExp = {
 };
 
 export type AttachmentRule = {
-  filename: RegExpValue | undefined;
-  ext: string | undefined;
+  filename?: RegExpValue;
+  ext?: string;
 };
 
 export type DateRule = {
-  startDate: Date | string | undefined;
-  endDate: Date | string | undefined;
+  startDate?: Date | string;
+  endDate?: Date | string;
 };
 
 export type ForwardAttachment = {
@@ -26,27 +26,29 @@ export type ForwardAttachment = {
 
 export type PostRule = {
   newsletter: boolean | 'all';
-  subject: ForwardRegExp | undefined;
-  name: ForwardRegExp | undefined;
-  from: ForwardRegExp | undefined;
-  date: DateRule[] | undefined;
-  content: ForwardRegExp | undefined;
-  attachment: ForwardAttachment | undefined;
+  subject?: ForwardRegExp;
+  name?: ForwardRegExp;
+  from?: ForwardRegExp;
+  date?: DateRule[];
+  content?: ForwardRegExp;
+  attachment?: ForwardAttachment;
 };
 export type ForwardPostRule = {
   type: ConditionType;
   postRule: PostRule;
 };
 export type PostRuleKey = keyof PostRule;
-export type PostRecord = Record<
-  PostRuleKey,
-  string | string[] | boolean | Date
->;
+export type PostRecord = {
+  newsletter: boolean;
+  subject: string;
+  name: string;
+  from: string;
+  date: string | Date;
+  content: string;
+  attachment: string[];
+};
 export type ForwardRule = ForwardPostRule[];
 
-const arrayOf = <T extends boolean | string | string[] | Date>(
-  t: T,
-): string[] => (Array.isArray(t) ? t : [t.toString()]);
 const matchRegExpValue = (value: string, regexp: RegExpValue) => {
   switch (regexp.type) {
     case 'middle':
@@ -79,7 +81,7 @@ const matchAttachment = (attachment: string, rule: AttachmentRule) => {
     ? matchRegExpValue(filename, rule.filename)
     : true;
   const matchExt = rule.ext
-    ? ext.trim().includes(rule.ext.toLowerCase())
+    ? ext.trim() === rule.ext.toLowerCase().replace(/^\./, '')
     : true;
   return matchFilename && matchExt;
 };
@@ -127,36 +129,28 @@ const matchForwardAttachments = (
 };
 
 const matchPost = (record: PostRecord, rule: ForwardPostRule) => {
-  const keys = Object.keys(record) as PostRuleKey[];
-  const result = keys.flatMap((key: PostRuleKey) => {
-    const postProp = rule.postRule[key];
-    if (postProp === undefined) return [];
-    if (
-      (typeof postProp === 'boolean' || typeof postProp === 'string') &&
-      typeof record[key] === 'boolean'
-    ) {
-      if (postProp === 'all') {
-        return [];
-      }
-      return rule.postRule[key] === record[key];
-    } else if (typeof postProp === 'object' && key === 'attachment') {
-      const forwardAttachment = postProp as ForwardAttachment;
-      return matchForwardAttachments(arrayOf(record[key]), forwardAttachment);
-    } else if (typeof postProp === 'object' && key === 'date') {
-      const dateRules = postProp as DateRule[];
-      if (dateRules.length === 0) return [];
-      return dateRules.some((rule) =>
-        matchDate(record[key] as string | Date, rule),
-      );
-    } else {
-      const forwardRegExp = postProp as ForwardRegExp;
-      return matchForwardRegExp(record[key] as string, forwardRegExp);
-    }
-  });
+  const post = rule.postRule;
+  const result: boolean[] = [];
+  if (post.newsletter !== 'all')
+    result.push(post.newsletter === record.newsletter);
+  if (post.attachment)
+    result.push(matchForwardAttachments(record.attachment, post.attachment));
+  if (post.date?.length)
+    result.push(post.date.some((date) => matchDate(record.date, date)));
+  const textKeys: Array<'subject' | 'name' | 'from' | 'content'> = [
+    'subject',
+    'name',
+    'from',
+    'content',
+  ];
+  for (const key of textKeys) {
+    const condition = post[key];
+    if (condition) result.push(matchForwardRegExp(record[key], condition));
+  }
   if (result.length === 0) return true;
   return rule.type === 'and' ? result.every(Boolean) : result.some(Boolean);
 };
 
 export const matchForwardRule = (record: PostRecord, rules: ForwardRule) => {
-  return rules.some((rule) => matchPost(record, rule));
+  return rules.length === 0 || rules.some((rule) => matchPost(record, rule));
 };

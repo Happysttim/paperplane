@@ -1,6 +1,6 @@
 import database from '@/database';
-import { emails, forwards } from '@/schema';
-import { count, eq, sql } from 'drizzle-orm';
+import { destinations, emails, forwards } from '@/schema';
+import { and, count, eq, sql } from 'drizzle-orm';
 
 const id = database.query.emails
   .findFirst({
@@ -72,6 +72,7 @@ const pagination = database.query.emails
     with: {
       forwards: true,
     },
+    orderBy: { id: 'desc' },
     offset: sql.placeholder('offset'),
     limit: sql.placeholder('limit'),
     extras: {
@@ -89,7 +90,22 @@ const paginationCount = database
   .where(eq(emails.userId, sql.placeholder('userId')))
   .prepare('emails_pagination_count');
 
+const routes = database
+  .select({ src: emails.src, dest: forwards.dest, rule: forwards.rule })
+  .from(emails)
+  .innerJoin(forwards, eq(forwards.emailId, emails.id))
+  .innerJoin(
+    destinations,
+    and(
+      eq(destinations.userId, emails.userId),
+      eq(destinations.address, forwards.dest),
+    ),
+  )
+  .where(sql`${emails.src} = ANY(${sql.placeholder('sources')}::text[])`)
+  .prepare('emails_verified_routes');
+
 export default {
+  routes,
   id,
   source,
   forwardsWithSource,

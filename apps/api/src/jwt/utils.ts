@@ -10,7 +10,7 @@ const createSessionClaims = (): string => {
     },
   };
 
-  return jwt.sign(jwtClaims);
+  return jwt.sign(jwtClaims, '7 days');
 };
 
 const createAccessClaims = (id: number): string => {
@@ -32,7 +32,7 @@ const createRefreshClaims = (id: number): string => {
     },
   };
 
-  return jwt.sign(jwtClaims, '1 day');
+  return jwt.sign({ ...jwtClaims, jti: randomUUID() }, '1 day');
 };
 
 const createVerifyClaims = (verifyClaims: VerifyClaims): string => {
@@ -41,7 +41,7 @@ const createVerifyClaims = (verifyClaims: VerifyClaims): string => {
     claims: verifyClaims,
   };
 
-  return jwt.sign(jwtClaims, '12 hours');
+  return jwt.sign({ ...jwtClaims, jti: randomUUID() }, '30 minutes');
 };
 
 export {

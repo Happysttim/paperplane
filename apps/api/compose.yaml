@@ -1,0 +1,58 @@
+name: paperplane-api
+
+services:
+  api:
+    image: paperplane/api:local
+    build:
+      # API 폴더가 아니라 pnpm lockfile이 있는 저장소 루트입니다.
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    init: true
+    # 로컬 개발용 .env와 분리된 컨테이너 연결 설정입니다.
+    env_file:
+      - .env.docker
+    environment:
+      LISTEN_PORT: '8080'
+      JWT_PRIVATE_KEY_PATH: /run/secrets/private.key
+      JWT_PUBLIC_KEY_PATH: /run/secrets/public.key
+      HMAC_KEY_PATH: /run/secrets/hmac.key
+    ports:
+      - '0.0.0.0:8080:8080'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      # 파일이 없을 때 디렉터리를 자동 생성하지 않고 시작에 실패하도록 합니다.
+      - type: bind
+        source: ./private.key
+        target: /run/secrets/private.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./public.key
+        target: /run/secrets/public.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./hmac.key
+        target: /run/secrets/hmac.key
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - database
+    # 기존 API 종료 처리 제한(10초)보다 길게 기다립니다.
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+networks:
+  database:
+    # apps/database의 Compose를 먼저 실행해야 합니다.
+    external: true
+    name: paperplane-database

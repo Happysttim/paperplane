@@ -16,7 +16,9 @@ const rateLimit = (limit: number) => {
     next: NextFunction,
   ) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const count = await rateLimitStore.set(ip);
+    const count = await rateLimitStore.set(
+      req.baseUrl + ':' + req.path + ':' + limit + ':' + ip,
+    );
 
     if (count === null) {
       res

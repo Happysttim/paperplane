@@ -1,0 +1,9 @@
+*
+!Dockerfile
+!Dockerfile.opendkim
+!opendkim-entrypoint.sh
+!docker-entrypoint.sh
+!config/
+!config/*.cf
+!config/pgsql/
+!config/pgsql/*.cf

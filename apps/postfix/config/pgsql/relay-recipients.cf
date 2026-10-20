@@ -1,0 +1,9 @@
+# 전체 수신 주소를 조회합니다. 전달 목적지나 사용자 정보는 조회하지 않습니다.
+query = SELECT 1 FROM public.emails WHERE src_email = '%s'
+# apps/database Compose의 서비스 이름은 postgres입니다.
+# 같은 Docker 네트워크에서 호스트 공개 포트가 아닌 내부 5432로 접속합니다.
+hosts = postgres:5432
+dbname = paperplane
+user = paperplane_postfix
+# password는 시작 시 POSTFIX_DB_PASSWORD에서 추가합니다.
+

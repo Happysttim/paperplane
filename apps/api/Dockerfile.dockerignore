@@ -1,0 +1,20 @@
+# Dockerfile 전용 제외 목록입니다. 저장소 루트를 context로 사용합니다.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!apps/
+!apps/api/
+!apps/api/package.json
+!apps/api/tsconfig.json
+!apps/api/src/
+!apps/api/src/**
+!apps/api/scripts/
+!apps/api/scripts/build.mjs
+!apps/api/scripts/migrate.ts
+!apps/api/migration/
+!apps/api/migration/**
+**/.env*
+**/*.key
+**/node_modules/**

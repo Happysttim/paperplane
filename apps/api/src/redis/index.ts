@@ -2,8 +2,11 @@ import config from '@/config';
 import { logger } from '@/logger';
 import { Redis } from 'ioredis';
 
-const redis = new Redis({
+export const redis = new Redis({
   host: config.redis.address,
+  lazyConnect: true,
+  maxRetriesPerRequest: 1,
+  retryStrategy: () => null,
   port: config.redis.port,
   username: config.redis.user,
   password: config.redis.password,

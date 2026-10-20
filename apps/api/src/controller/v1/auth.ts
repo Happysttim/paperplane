@@ -17,7 +17,8 @@ import { hash } from '@/utils/hash';
 import { compareHash } from '@/utils/hash';
 import { issueCsrfTokens, issueRefreshToken } from '../utils';
 import { eq } from 'drizzle-orm';
-import { users } from '@/schema';
+import { users, sessions } from '@/schema';
+import database from '@/database';
 
 // @Router /api/v1/auth/register POST
 const register = async (req: Request, res: Response<ResponseSchema>) => {
@@ -37,7 +38,12 @@ const register = async (req: Request, res: Response<ResponseSchema>) => {
 
     const verifyClaims = jwt.verify(token);
 
-    if (!verifyClaims || verifyClaims.type != 'verifyToken') {
+    if (
+      !verifyClaims ||
+      verifyClaims.type != 'verifyToken' ||
+      verifyClaims.claims.type !== 'register' ||
+      verifyClaims.claims.provider !== body.provider
+    ) {
       throw new Error('verify token error');
     }
 
@@ -52,7 +58,11 @@ const register = async (req: Request, res: Response<ResponseSchema>) => {
       }
 
       const verifyJSON = await redisVerify.getdel(token);
-      if (!verifyJSON || verifyJSON.status != 'verified') {
+      if (
+        !verifyJSON ||
+        verifyJSON.login !== 'local' ||
+        verifyJSON.status != 'verified'
+      ) {
         throw new Error('not pass verify step');
       }
 
@@ -68,6 +78,20 @@ const register = async (req: Request, res: Response<ResponseSchema>) => {
       }
     }
 
+    if (verifyClaims.claims.provider !== 'local') {
+      if (
+        body.provider === 'local' ||
+        body.providerId !== verifyClaims.claims.providerId
+      )
+        throw new Error('provider identity mismatch');
+      const verified = await redisVerify.getdel(token);
+      if (
+        !verified ||
+        verified.login !== 'oauth' ||
+        verified.status !== 'verified'
+      )
+        throw new Error('verification required');
+    }
     const userEmail =
       body.provider === 'local' ? body.email.trim().toLowerCase() : undefined;
     const providerId = body.provider === 'local' ? undefined : body.providerId;
@@ -92,13 +116,14 @@ const register = async (req: Request, res: Response<ResponseSchema>) => {
     }
 
     const csrfToken = issueCsrfTokens(res);
-    const refreshToken = issueRefreshToken(res, user.id);
+    const accessToken = await issueRefreshToken(res, user.id);
+    if (!accessToken) throw new Error('token issuance failed');
 
     return res.status(HttpStatus.OK).json({
       status: 'ok',
       data: {
         csrfToken,
-        refreshToken,
+        accessToken,
       },
     });
   } catch (e) {
@@ -137,13 +162,14 @@ const login = async (req: Request, res: Response<ResponseSchema>) => {
   }
 
   const csrfToken = issueCsrfTokens(res);
-  const refreshToken = issueRefreshToken(res, user.id);
+  const accessToken = await issueRefreshToken(res, user.id);
+  if (!accessToken) throw new Error('token issuance failed');
 
   return res.status(HttpStatus.OK).json({
     status: 'ok',
     data: {
       csrfToken,
-      refreshToken,
+      accessToken,
     },
   });
 };
@@ -198,10 +224,18 @@ const resetPassword = async (req: Request, res: Response<ResponseSchema>) => {
     }
 
     const passwordHash = await hash(bodyParse.data.password.trim());
-    const updated = await userRepository.update(
-      { passwordHash, updatedAt: new Date() },
-      eq(users.id, user.id),
-    );
+    const updated = await database.transaction(async (tx) => {
+      const rows = await tx
+        .update(users)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(eq(users.id, user.id))
+        .returning();
+      await tx
+        .update(sessions)
+        .set({ revoke: true })
+        .where(eq(sessions.userId, user.id));
+      return rows;
+    });
 
     if (updated.length === 0) {
       logger.error(

@@ -3,7 +3,7 @@ import { z } from 'zod';
 const providerCallbackSchema = z.union([
   z.object({
     provider: z.literal('naver'),
-    error: z.undefined(),
+    error: z.undefined().optional(),
     code: z.string(),
     state: z.string(),
   }),
@@ -14,7 +14,8 @@ const providerCallbackSchema = z.union([
   }),
   z.object({
     provider: z.literal('google'),
-    error: z.undefined(),
+    state: z.string(),
+    error: z.undefined().optional(),
     code: z.string(),
   }),
   z.object({
@@ -25,17 +26,17 @@ const providerCallbackSchema = z.union([
 
 const naverTokenSchema = z.object({
   access_token: z.string(),
-  refresh_token: z.string(),
+  refresh_token: z.string().optional(),
   token_type: z.string(),
-  expires_in: z.number(),
+  expires_in: z.coerce.number(),
 });
 
 const googleTokenSchema = z.object({
   access_token: z.string(),
-  refresh_token: z.string(),
-  expires_in: z.number(),
+  refresh_token: z.string().optional(),
+  expires_in: z.coerce.number(),
   token_type: z.string(),
-  scope: z.array(z.string()),
+  scope: z.string(),
 });
 
 const providerTokenSchema = z.discriminatedUnion('provider', [

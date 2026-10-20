@@ -1,9 +1,12 @@
+import { z } from 'zod';
 import * as redis from '.';
 
-type ProviderJSON = {
-  provider: 'naver' | 'google';
-  createdAt: number;
-};
+const providerJSONSchema = z.object({
+  provider: z.enum(['naver', 'google']),
+  createdAt: z.number(),
+  session: z.string(),
+});
+type ProviderJSON = z.infer<typeof providerJSONSchema>;
 const STATE_KEY_PREFIX = 'provider:state:';
 const STATE_TTL_SECONDS = 5 * 60;
 
@@ -28,7 +31,7 @@ const get = async (state: string): Promise<ProviderJSON | null> => {
     return null;
   }
 
-  return JSON.parse(value) as ProviderJSON;
+  return providerJSONSchema.parse(JSON.parse(value));
 };
 
 const getdel = async (state: string): Promise<ProviderJSON | null> => {
@@ -39,7 +42,7 @@ const getdel = async (state: string): Promise<ProviderJSON | null> => {
     return null;
   }
 
-  return JSON.parse(value) as ProviderJSON;
+  return providerJSONSchema.parse(JSON.parse(value));
 };
 
 const remove = async (state: string): Promise<boolean> => {

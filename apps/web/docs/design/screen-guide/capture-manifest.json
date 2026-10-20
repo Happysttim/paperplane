@@ -1,0 +1,1826 @@
+[
+  {
+    "id": "P01",
+    "title": "서비스 소개",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P01-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1425,
+      "height": 990
+    },
+    "route": "/",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P01",
+    "title": "서비스 소개",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P01-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P01",
+    "title": "서비스 소개",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P01-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P02",
+    "title": "로그인",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P02-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/login",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P02",
+    "title": "로그인",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P02-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/login",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P02",
+    "title": "로그인",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P02-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/login",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P03",
+    "title": "이메일 가입 시작",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P03-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/signup",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P03",
+    "title": "이메일 가입 시작",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P03-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/signup",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P03",
+    "title": "이메일 가입 시작",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P03-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/signup",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P04",
+    "title": "가입 코드 확인",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P04-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/signup/verify",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P04",
+    "title": "가입 코드 확인",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P04-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/signup/verify",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P04",
+    "title": "가입 코드 확인",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P04-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/signup/verify",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P05",
+    "title": "가입 정보 입력",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P05-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/signup/profile",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P05",
+    "title": "가입 정보 입력",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P05-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/signup/profile",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P05",
+    "title": "가입 정보 입력",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P05-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/signup/profile",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P06",
+    "title": "소셜 인증 결과",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P06-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/auth/callback",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P06",
+    "title": "소셜 인증 결과",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P06-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/auth/callback",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P06",
+    "title": "소셜 인증 결과",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P06-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/auth/callback",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P07",
+    "title": "소셜 신규 가입",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P07-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/signup/social",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P07",
+    "title": "소셜 신규 가입",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P07-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/signup/social",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P07",
+    "title": "소셜 신규 가입",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P07-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/signup/social",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P08",
+    "title": "비밀번호 복구",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P08-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/password/reset",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P08",
+    "title": "비밀번호 복구",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P08-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/password/reset",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P08",
+    "title": "비밀번호 복구",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P08-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/password/reset",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P09",
+    "title": "새 비밀번호 설정",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P09-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/password/reset/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P09",
+    "title": "새 비밀번호 설정",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P09-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/password/reset/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P09",
+    "title": "새 비밀번호 설정",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P09-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/password/reset/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P10",
+    "title": "내 이메일",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P10-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P10",
+    "title": "내 이메일",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P10-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P10",
+    "title": "내 이메일",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P10-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P11",
+    "title": "주소 만들기",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P11-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/emails/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P11",
+    "title": "주소 만들기",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P11-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/emails/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P11",
+    "title": "주소 만들기",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P11-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/emails/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P12",
+    "title": "주소 전달 설정",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P12-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/email/1",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P12",
+    "title": "주소 전달 설정",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P12-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/email/1",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P12",
+    "title": "주소 전달 설정",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P12-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/email/1",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P13",
+    "title": "전달 규칙 편집",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P13-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1425,
+      "height": 990
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P13",
+    "title": "전달 규칙 편집",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P13-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P13",
+    "title": "전달 규칙 편집",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P13-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P14",
+    "title": "받는 메일함",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P14-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/destinations",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P14",
+    "title": "받는 메일함",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P14-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/destinations",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P14",
+    "title": "받는 메일함",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P14-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/destinations",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P15",
+    "title": "받는 메일함 추가",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P15-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/destinations/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P15",
+    "title": "받는 메일함 추가",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P15-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/destinations/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P15",
+    "title": "받는 메일함 추가",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P15-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/destinations/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P16",
+    "title": "전달 기록",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P16-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/deliveries",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P16",
+    "title": "전달 기록",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P16-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/deliveries",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P16",
+    "title": "전달 기록",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P16-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/deliveries",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P17",
+    "title": "계정 설정",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P17-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/settings",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P17",
+    "title": "계정 설정",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P17-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/settings",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P17",
+    "title": "계정 설정",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P17-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/settings",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P18",
+    "title": "없는 페이지",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P18-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/404",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P18",
+    "title": "없는 페이지",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P18-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/404",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P18",
+    "title": "없는 페이지",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P18-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/404",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P19",
+    "title": "세션 만료",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P19-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/session",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P19",
+    "title": "세션 만료",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P19-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/session",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P19",
+    "title": "세션 만료",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P19-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/session",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P20",
+    "title": "첫 설정 완료",
+    "kind": "page",
+    "mode": "desktop",
+    "file": "screenshots/P20-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/success",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P20",
+    "title": "첫 설정 완료",
+    "kind": "page",
+    "mode": "tablet",
+    "file": "screenshots/P20-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/success",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "P20",
+    "title": "첫 설정 완료",
+    "kind": "page",
+    "mode": "mobile",
+    "file": "screenshots/P20-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/success",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S01",
+    "title": "내 이메일 빈 목록",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S01-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S01",
+    "title": "내 이메일 빈 목록",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S01-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S01",
+    "title": "내 이메일 빈 목록",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S01-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S02",
+    "title": "목록 불러오는 중",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S02-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S02",
+    "title": "목록 불러오는 중",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S02-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S02",
+    "title": "목록 불러오는 중",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S02-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S03",
+    "title": "연결 오류와 재시도",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S03-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S03",
+    "title": "연결 오류와 재시도",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S03-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S03",
+    "title": "연결 오류와 재시도",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S03-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/emails",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S04",
+    "title": "메일함 인증 코드 확인",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S04-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/destinations/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S04",
+    "title": "메일함 인증 코드 확인",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S04-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/destinations/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S04",
+    "title": "메일함 인증 코드 확인",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S04-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/destinations/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S05",
+    "title": "복합 조건과 자연어 요약",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S05-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1425,
+      "height": 990
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S05",
+    "title": "복합 조건과 자연어 요약",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S05-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S05",
+    "title": "복합 조건과 자연어 요약",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S05-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S06",
+    "title": "조건 테스트 일치",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S06-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1425,
+      "height": 990
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S06",
+    "title": "조건 테스트 일치",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S06-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S06",
+    "title": "조건 테스트 일치",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S06-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S07",
+    "title": "조건 테스트 불일치",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S07-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1425,
+      "height": 990
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S07",
+    "title": "조건 테스트 불일치",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S07-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S07",
+    "title": "조건 테스트 불일치",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S07-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S08",
+    "title": "미저장 변경 확인",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S08-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1425,
+      "height": 990
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "dialog"
+  },
+  {
+    "id": "S08",
+    "title": "미저장 변경 확인",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S08-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 753,
+      "height": 1004
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "dialog"
+  },
+  {
+    "id": "S08",
+    "title": "미저장 변경 확인",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S08-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/rule/2/21",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "dialog"
+  },
+  {
+    "id": "S09",
+    "title": "받는 메일함 삭제 확인",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S09-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/destinations",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "dialog"
+  },
+  {
+    "id": "S09",
+    "title": "받는 메일함 삭제 확인",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S09-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/destinations",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "dialog"
+  },
+  {
+    "id": "S09",
+    "title": "받는 메일함 삭제 확인",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S09-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/destinations",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "dialog"
+  },
+  {
+    "id": "S10",
+    "title": "전달 기록 상세 펼침",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S10-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/deliveries",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S10",
+    "title": "전달 기록 상세 펼침",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S10-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/deliveries",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S10",
+    "title": "전달 기록 상세 펼침",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S10-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/deliveries",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S11",
+    "title": "비밀번호 확인 불일치",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S11-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/signup/profile",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S11",
+    "title": "비밀번호 확인 불일치",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S11-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/signup/profile",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S11",
+    "title": "비밀번호 확인 불일치",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S11-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/signup/profile",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "initial viewport"
+  },
+  {
+    "id": "S12",
+    "title": "중복 주소 입력 오류",
+    "kind": "state",
+    "mode": "desktop",
+    "file": "screenshots/S12-desktop.jpg",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "image": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/emails/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S12",
+    "title": "중복 주소 입력 오류",
+    "kind": "state",
+    "mode": "tablet",
+    "file": "screenshots/S12-tablet.jpg",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "image": {
+      "width": 768,
+      "height": 1024
+    },
+    "route": "/emails/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  },
+  {
+    "id": "S12",
+    "title": "중복 주소 입력 오류",
+    "kind": "state",
+    "mode": "mobile",
+    "file": "screenshots/S12-mobile.jpg",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "image": {
+      "width": 375,
+      "height": 812
+    },
+    "route": "/emails/new",
+    "captureDate": "2026-10-18",
+    "captureMethod": "actual browser viewport with animations disabled",
+    "position": "lower section"
+  }
+]

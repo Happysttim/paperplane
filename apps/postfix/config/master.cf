@@ -1,0 +1,62 @@
+# service type private unpriv chroot wakeup maxproc command
+smtp      inet n       -      n      -      -       smtpd
+
+# Mail already routed by apps/smtp: never pass it through the filter again.
+# This listener is not a public submission service (no SMTP AUTH).
+10025     inet n       -      n      -      -       smtpd
+  -o syslog_name=postfix/reinject
+  -o content_filter=
+  -o smtpd_delay_reject=no
+  -o smtpd_client_restrictions=permit_mynetworks,reject
+  -o smtpd_relay_restrictions=permit_mynetworks,reject
+  -o smtpd_recipient_restrictions=permit_mynetworks,reject
+  -o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters
+  -o smtpd_tls_security_level=none
+  -o smtpd_tls_wrappermode=no
+
+# API 자체 발신 전용: 외부에서 받은 전달 메일은 이 포트를 사용하지 않습니다.
+10027     inet n       -      n      -      -       smtpd
+  -o syslog_name=postfix/signing
+  -o content_filter=
+  -o smtpd_delay_reject=no
+  -o smtpd_client_restrictions=permit_mynetworks,reject
+  -o smtpd_relay_restrictions=permit_mynetworks,reject
+  -o smtpd_recipient_restrictions=permit_mynetworks,reject
+  -o receive_override_options=no_unknown_recipient_checks,no_header_body_checks
+  -o smtpd_milters=inet:opendkim:8891
+  -o milter_protocol=6
+  -o milter_default_action=tempfail
+  -o milter_macro_daemon_name=ORIGINATING
+  -o smtpd_tls_security_level=none
+  -o smtpd_tls_wrappermode=no
+
+# Private hop to apps/smtp. Keep the MIME representation intact for DKIM.
+scan      unix -       -      n      -      10      smtp
+  -o smtp_tls_security_level=none
+  -o disable_mime_output_conversion=yes
+  -o smtp_generic_maps=
+
+pickup    unix n       -      n      60     1       pickup
+cleanup   unix n       -      n      -      0       cleanup
+qmgr      unix n       -      n      300    1       qmgr
+tlsmgr    unix -       -      n      1000?  1       tlsmgr
+rewrite   unix -       -      n      -      -       trivial-rewrite
+bounce    unix -       -      n      -      0       bounce
+defer     unix -       -      n      -      0       bounce
+trace     unix -       -      n      -      0       bounce
+verify    unix -       -      n      -      1       verify
+flush     unix n       -      n      1000?  0       flush
+proxymap  unix -       -      n      -      -       proxymap
+proxywrite unix -      -      n      -      1       proxymap
+smtp      unix -       -      n      -      -       smtp
+relay     unix -       -      n      -      -       smtp
+showq     unix n       -      n      -      -       showq
+error     unix -       -      n      -      -       error
+retry     unix -       -      n      -      -       error
+discard   unix -       -      n      -      -       discard
+local     unix -       n      n      -      -       local
+virtual   unix -       n      n      -      -       virtual
+lmtp      unix -       -      n      -      -       lmtp
+anvil     unix -       -      n      -      1       anvil
+scache    unix -       -      n      -      1       scache
+postlog   unix-dgram n -      n      -      1       postlogd
